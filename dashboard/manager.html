@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Firasa | Manager Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<link rel="stylesheet" href="assets/firasa.css">
+<style>
+  :root {
+    --bg: #0D2B1E; --bg-deep: #081C13; --gold: #D4AF37; --gold-light: #E9CB6F;
+    --text: #F3EFE3; --text-dim: #A9B8AC; --panel: #0F3324; --panel-2: #0B1414;
+    --green: #1FA968; --green-soft: #3FC98A; --cyan: #37D6C6;
+    --critical: #F06A68; --high: #F0C45B; --moderate: #72E0A9; --low: #77BCE8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: radial-gradient(ellipse at 50% 12%, rgba(63,201,138,0.16) 0%, transparent 46%), radial-gradient(ellipse at 50% 90%, rgba(212,175,55,0.1) 0%, transparent 48%), linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%); color: var(--text); font-family: 'Inter', -apple-system, "Segoe UI", Tahoma, Arial, sans-serif; min-height: 100vh; }
+  body { animation: page-enter 650ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+  @keyframes page-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 26px 20px 48px; position: relative; z-index: 1; }
+
+  .intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .eyebrow { display: block; color: var(--green-soft); font-size: 10px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; }
+  .intro h1 { margin-top: 8px; color: var(--gold-light); font-family: 'Cinzel', Georgia, serif; font-size: clamp(24px, 3vw, 34px); font-weight: 700; text-shadow: 0 0 22px rgba(212,175,55,0.2); }
+  .intro p { margin-top: 6px; color: var(--text-dim); font-size: 13px; }
+  .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 34px 0 14px; flex-wrap: wrap; }
+  .section-head h2 { margin-top: 6px; color: var(--gold-light); font-family: 'Cinzel', Georgia, serif; font-size: 20px; font-weight: 700; }
+  .section-head .note { color: var(--text-dim); font-size: 11.5px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--gold); background: linear-gradient(180deg, rgba(212,175,55,0.18), rgba(212,175,55,0.06)); color: var(--gold-light); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; transition: box-shadow 200ms ease, transform 200ms ease; }
+  .btn:hover { box-shadow: 0 0 18px rgba(212,175,55,0.28); transform: translateY(-1px); }
+  .btn svg { width: 14px; height: 14px; }
+  .btn.ghost { border-color: color-mix(in srgb, var(--c, var(--gold)) 55%, transparent); background: transparent; color: var(--c, var(--gold-light)); }
+  .btn.ghost:hover { background: color-mix(in srgb, var(--c, var(--gold)) 12%, transparent); box-shadow: none; }
+
+  .panel { position: relative; overflow: hidden; border-radius: 16px; border: 1px solid rgba(212,175,55,0.2); background: linear-gradient(155deg, rgba(31,169,104,0.08), rgba(8,28,19,0.78)); box-shadow: 0 18px 44px rgba(3,15,10,0.25); }
+
+  /* ---------- KPI row ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .kpi { --c: var(--gold-light); position: relative; overflow: hidden; padding: 16px 18px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--c) 30%, rgba(63,201,138,0.14)); background: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--c) 14%, transparent), transparent 55%), linear-gradient(145deg, rgba(15,51,36,0.85), rgba(8,28,19,0.85)); }
+  .kpi::after { content: ''; position: absolute; width: 80px; height: 80px; right: -30px; bottom: -42px; border: 1px solid color-mix(in srgb, var(--c) 38%, transparent); border-radius: 50%; box-shadow: 0 0 22px color-mix(in srgb, var(--c) 22%, transparent); }
+  .kpi .k { display: flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 10.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .kpi .k i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 9px var(--c); }
+  .kpi .v { display: block; margin-top: 10px; color: var(--text); font-family: 'Cinzel', Georgia, serif; font-size: 32px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .kpi .s { display: block; margin-top: 8px; color: var(--text-dim); font-size: 11.5px; }
+  .kpi .s b { color: var(--c); font-weight: 700; }
+
+  /* ---------- charts ---------- */
+  .charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 14px; }
+  .chart-card { padding: 18px 20px 16px; }
+  .chart-card h3 { color: var(--text); font-size: 14px; font-weight: 700; }
+  .chart-card .sub { display: block; margin-top: 3px; color: var(--text-dim); font-size: 11.5px; }
+  .mix-bar { display: flex; gap: 2px; height: 34px; margin-top: 22px; }
+  .mix-seg { position: relative; min-width: 4px; height: 100%; background: var(--c); cursor: pointer; transition: filter 150ms ease, transform 150ms ease; }
+  .mix-seg:first-child { border-radius: 6px 0 0 6px; }
+  .mix-seg:last-child { border-radius: 0 6px 6px 0; }
+  .mix-seg:hover, .mix-seg.hot { filter: brightness(1.15); transform: scaleY(1.12); }
+  .mix-seg span { position: absolute; inset: 0; display: grid; place-items: center; color: #0B1414; font-size: 11.5px; font-weight: 800; }
+  .mix-legend { margin-top: 18px; display: grid; gap: 4px; }
+  .mix-row { --c: var(--gold-light); display: grid; grid-template-columns: 12px 1fr auto 58px; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; cursor: pointer; transition: background 150ms ease; }
+  .mix-row:hover, .mix-row.hot { background: color-mix(in srgb, var(--c) 10%, transparent); }
+  .mix-row i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+  .mix-row .n { color: var(--text); font-size: 13px; font-weight: 600; }
+  .mix-row .c { color: var(--text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .mix-row .p { color: var(--text-dim); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+
+  .hist-wrap { position: relative; margin-top: 16px; }
+  .hist-svg { display: block; width: 100%; height: 230px; overflow: visible; }
+  .hist-svg .grid { stroke: rgba(255,255,255,0.07); }
+  .hist-svg .axis-t { fill: var(--text-dim); font-size: 10px; font-family: Inter, sans-serif; }
+  .hist-svg .thr { stroke: rgba(233,203,111,0.55); stroke-dasharray: 3 4; }
+  .hist-svg .thr-t { fill: var(--gold-light); font-size: 9.5px; font-weight: 600; font-family: Inter, sans-serif; }
+  .hist-svg .bar { transition: opacity 150ms ease; }
+  .hist-svg .hit { fill: transparent; cursor: pointer; }
+  .hist-svg.dim .bar { opacity: 0.35; }
+  .hist-svg.dim .bar.on { opacity: 1; }
+  .hist-svg .brk { stroke: #0B1414; stroke-width: 3; }
+  .hist-svg .cap-t { fill: var(--text); font-size: 10px; font-weight: 700; font-family: Inter, sans-serif; }
+
+  .tip { --c: var(--gold-light); position: fixed; z-index: 40; min-width: 150px; padding: 9px 11px 9px 14px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--c) 65%, transparent); box-shadow: inset 3px 0 0 var(--c), 0 10px 24px rgba(0,0,0,0.4), 0 0 18px color-mix(in srgb, var(--c) 22%, transparent) !important; background: rgba(7,18,16,0.96); box-shadow: 0 10px 24px rgba(0,0,0,0.4); color: var(--text); font-size: 11.5px; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity 120ms ease, transform 120ms ease; }
+  .tip.show { opacity: 1; transform: none; }
+  .tip b { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; color: var(--c); font-size: 12px; }
+  .tip b::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+  .tip .r { display: flex; justify-content: space-between; gap: 14px; color: var(--text-dim); }
+  .tip .r span:last-child { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------- decision playbook ---------- */
+  .plays { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .play { --c: var(--gold-light); position: relative; overflow: hidden; display: flex; flex-direction: column; padding: 16px 16px 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c) 45%, rgba(63,201,138,0.16)); background: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--c) 20%, transparent), transparent 45%), linear-gradient(155deg, rgba(15,51,36,0.9), rgba(8,28,19,0.9)); transition: transform 200ms ease, box-shadow 200ms ease; }
+  .play::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--c), transparent); box-shadow: 0 0 16px var(--c); }
+  .play:hover { transform: translateY(-3px); box-shadow: 0 16px 30px rgba(3,15,10,0.35), 0 0 22px color-mix(in srgb, var(--c) 16%, transparent); }
+  .play-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .prio { color: var(--text-dim); font-size: 9.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c) 60%, transparent); background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+  .play .count { margin-top: 14px; color: var(--text); font-family: 'Cinzel', Georgia, serif; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .play .count small { margin-left: 6px; color: var(--text-dim); font-family: Inter, sans-serif; font-size: 12px; font-weight: 500; }
+  .play .verb { margin-top: 14px; color: var(--c); font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+  .play .act { margin-top: 5px; flex: 1; color: var(--text); font-size: 13.5px; font-weight: 600; line-height: 1.45; }
+  .play .btns { display: flex; gap: 6px; margin-top: 14px; }
+  .play .btns .btn { flex: 1; justify-content: center; padding: 8px 10px; font-size: 11.5px; }
+  .play.urgent { animation: play-pulse 2.6s ease-in-out infinite; }
+  @keyframes play-pulse { 0%, 100% { box-shadow: 0 0 0 rgba(240,106,104,0); } 50% { box-shadow: 0 0 30px rgba(240,106,104,0.28); } }
+
+  .warns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+  .warn { --c: var(--high); display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: 14px; border: 1px dashed color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 7%, rgba(8,28,19,0.8)); }
+  .warn .ic { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); box-shadow: 0 0 16px color-mix(in srgb, var(--c) 22%, transparent); }
+  .warn .ic svg { width: 20px; height: 20px; }
+  .warn .tx { flex: 1; min-width: 0; }
+  .warn .tx b { display: block; color: var(--text); font-size: 13.5px; }
+  .warn .tx span { display: block; margin-top: 3px; color: var(--text-dim); font-size: 11.5px; }
+  .warn .num { color: var(--c); font-family: 'Cinzel', Georgia, serif; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- priority list ---------- */
+  .list-panel { --c: var(--gold-light); }
+  .list-panel::before { content: ''; display: block; height: 4px; background: linear-gradient(90deg, transparent, var(--c), transparent); box-shadow: 0 0 18px var(--c); transition: background 300ms ease; }
+  .list-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 4px; border-radius: 11px; background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.06); }
+  .tab { --c: var(--gold-light); display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--text-dim); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 160ms ease, color 160ms ease; }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: color-mix(in srgb, var(--c) 16%, rgba(255,255,255,0.04)); color: var(--c); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 40%, transparent); }
+  .tab .n { font-size: 10.5px; opacity: 0.8; font-variant-numeric: tabular-nums; }
+  .search { position: relative; flex: 1; min-width: 200px; }
+  .search input { width: 100%; padding: 9px 12px 9px 34px; border-radius: 10px; border: 1px solid rgba(212,175,55,0.3); background: rgba(255,255,255,0.03); color: var(--text); font: inherit; font-size: 12.5px; outline: none; }
+  .search input:focus { border-color: var(--gold); }
+  .search svg { position: absolute; left: 11px; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); color: var(--gold-light); opacity: 0.6; }
+  .list-meta { padding: 10px 18px 0; color: var(--text-dim); font-size: 11px; }
+
+  .rows { padding: 6px 8px 8px; }
+  .row { --c: var(--gold-light); display: grid; grid-template-columns: 38px minmax(0, 1.6fr) 110px 120px 90px minmax(0, 2fr) 18px; align-items: center; gap: 14px; padding: 11px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); border-radius: 8px; color: inherit; text-decoration: none; transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover { background: color-mix(in srgb, var(--c) 10%, transparent); box-shadow: inset 3px 0 0 var(--c); transform: translateX(3px); }
+  .row.head { padding-top: 6px; padding-bottom: 8px; color: var(--text-dim); font-size: 9.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; pointer-events: none; }
+  .row.enter { animation: row-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--d, 0ms); }
+  @keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .row .rk { color: rgba(233,203,111,0.55); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .row .nm { display: block; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .id { display: block; margin-top: 2px; color: var(--text-dim); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .score { display: flex; align-items: center; gap: 8px; }
+  .row .score b { min-width: 24px; color: var(--c); font-family: 'Cinzel', Georgia, serif; font-size: 16px; }
+  .row .meter { flex: 1; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+  .row .meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 35%, transparent), var(--c)); }
+  .row .trend { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .row .trend.up { color: var(--critical); }
+  .row .trend.down { color: var(--moderate); }
+  .row .trend.flat { color: var(--text-dim); font-weight: 500; }
+  .row .act { color: var(--text-dim); font-size: 11.5px; line-height: 1.4; }
+  .row .go { color: var(--text-dim); opacity: 0; transition: opacity 150ms ease, transform 150ms ease; }
+  .row:hover .go { opacity: 1; transform: translateX(2px); color: var(--c); }
+  .row .go svg { width: 14px; height: 14px; }
+  .more { display: block; width: calc(100% - 32px); margin: 6px 16px 16px; }
+  .more[hidden] { display: none; }
+  .empty { padding: 34px 10px; color: var(--text-dim); font-size: 12.5px; text-align: center; }
+
+  /* ---------- export notification ---------- */
+  .toast { --c: var(--green-soft); position: fixed; left: 50%; bottom: 28px; z-index: 60; display: flex; align-items: center; gap: 14px; width: min(440px, calc(100vw - 32px)); padding: 16px 16px 18px 18px; overflow: hidden; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c) 50%, transparent); background: radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--c) 20%, transparent), transparent 55%), linear-gradient(150deg, rgba(15,51,36,0.98), rgba(7,18,16,0.99)); box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 36px color-mix(in srgb, var(--c) 20%, transparent), inset 0 1px 0 rgba(255,255,255,0.08); opacity: 0; visibility: hidden; transform: translate(-50%, 24px) scale(0.96); transition: opacity 240ms ease, transform 420ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 420ms; }
+  .toast.show { opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1); transition: opacity 240ms ease, transform 420ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .toast.warn { --c: var(--high); }
+  .toast-ic { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: color-mix(in srgb, var(--c) 16%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent), 0 0 20px color-mix(in srgb, var(--c) 30%, transparent); color: var(--c); }
+  .toast-ic svg { width: 22px; height: 22px; }
+  .toast-ic .draw { stroke-dasharray: 30; stroke-dashoffset: 30; }
+  .toast.show .toast-ic .draw { animation: toast-draw 520ms ease 200ms forwards; }
+  @keyframes toast-draw { to { stroke-dashoffset: 0; } }
+  .toast-tx { flex: 1; min-width: 0; }
+  .toast-tx b { display: block; color: #fff; font-size: 14px; font-weight: 700; }
+  .toast-tx span { display: block; margin-top: 3px; color: var(--text-dim); font-size: 12px; line-height: 1.45; }
+  .toast-tx code { display: inline-block; max-width: 100%; margin-top: 6px; padding: 3px 8px; overflow: hidden; border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--c); font-family: ui-monospace, Consolas, monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+  .toast-x { display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; align-self: flex-start; border-radius: 9px; border: 1px solid rgba(255,255,255,0.14); background: transparent; color: var(--text-dim); cursor: pointer; transition: color 150ms ease, border-color 150ms ease, transform 200ms ease; }
+  .toast-x:hover { color: #fff; border-color: var(--c); transform: rotate(90deg); }
+  .toast-x svg { width: 13px; height: 13px; }
+  .toast-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--c); box-shadow: 0 0 10px var(--c); transform-origin: left; }
+  .toast.show .toast-bar { animation: toast-count var(--life, 5s) linear forwards; }
+  @keyframes toast-count { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+  @media (max-width: 980px) {
+    .kpis, .plays { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .charts, .warns { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 32px minmax(0, 1fr) 100px 70px 18px; }
+    .row .act, .row .lvl-col { display: none; }
+  }
+  @media (max-width: 560px) {
+    .kpis, .plays { grid-template-columns: 1fr; }
+    .row { grid-template-columns: minmax(0, 1fr) 90px 18px; }
+    .row .rk, .row .trend { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="sky sky-soft" id="sky" data-density="0.35" aria-hidden="true"></div>
+
+  <div class="topbar">
+    <a href="landing.html" class="brand"><span class="mark">FIRASA</span><span class="page">The sixth sense for credit risk.</span></a>
+    <div class="nav">
+      <a href="landing.html">Home</a>
+      <a href="radar.html">Radar</a>
+      <a href="profile.html">Customer Profile</a>
+      <a href="manager.html" class="active">Manager Dashboard</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="intro">
+      <div>
+        <span class="eyebrow">Manager dashboard</span>
+        <h1>Portfolio Risk at a Glance</h1>
+        <p>Where the risk sits, what to do about it, and who to call first.</p>
+      </div>
+      <button type="button" class="btn" id="exportAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export at-risk list</button>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="section-head">
+      <div><span class="eyebrow">Proportions</span><h2>Risk Mix</h2></div>
+      <span class="note">Hover any bar or segment for exact numbers</span>
+    </div>
+    <div class="charts">
+      <section class="panel chart-card">
+        <h3>Share of portfolio by risk level</h3>
+        <span class="sub" id="mixSub">Each segment is a share of all customers</span>
+        <div class="mix-bar" id="mixBar" role="img" aria-label="Portfolio share by risk level"></div>
+        <div class="mix-legend" id="mixLegend"></div>
+      </section>
+      <section class="panel chart-card">
+        <h3>How risk scores are spread</h3>
+        <span class="sub">Customers per 5-point score band · dashed lines mark the level cut-offs</span>
+        <div class="hist-wrap"><svg class="hist-svg" id="hist" role="img" aria-label="Histogram of customer risk scores"></svg></div>
+      </section>
+    </div>
+
+    <div class="section-head">
+      <div><span class="eyebrow">Decisions</span><h2>Action Playbook</h2></div>
+      <span class="note">One clear move per risk level, ordered by urgency</span>
+    </div>
+    <div class="plays" id="plays"></div>
+    <div class="warns" id="warns"></div>
+
+    <div class="section-head" id="listHead">
+      <div><span class="eyebrow">Priority list</span><h2>Who to Contact First</h2></div>
+      <button type="button" class="btn" id="exportView"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export this view</button>
+    </div>
+    <section class="panel list-panel" id="listPanel">
+      <div class="list-tools">
+        <div class="tabs" id="tabs"></div>
+        <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg><input id="search" type="text" placeholder="Search by name or customer ID..."></label>
+      </div>
+      <div class="list-meta" id="listMeta"></div>
+      <div class="rows" id="rows"></div>
+      <button type="button" class="btn more" id="more" hidden>Show more</button>
+    </section>
+  </div>
+
+  <footer>
+    &copy; 2026 Firasa. Data Science Bootcamp project &mdash; SDA &amp; WeCloudData.
+  </footer>
+
+  <div class="tip" id="tip"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/sample-data.js"></script>
+<script>
+  var LEVELS = ['Critical', 'High', 'Moderate', 'Low'];
+  var COLORS = { Critical: '#F06A68', High: '#F0C45B', Moderate: '#72E0A9', Low: '#77BCE8' };
+  var CUTS = { Moderate: 0.10, High: 0.30, Critical: 0.60 };
+  var PLAY = {
+    Critical: { prio: 'P1 · Today', verb: 'Call now' },
+    High:     { prio: 'P2 · This week', verb: 'Reach out' },
+    Moderate: { prio: 'P3 · This month', verb: 'Watch' },
+    Low:      { prio: 'P4 · Routine', verb: 'Monitor' }
+  };
+  var NEAR_GAP = 0.10;      // High customers within 10 points of Critical
+  var RISE_PTS = 0.15;      // score up 15+ points ...
+  var RISE_MONTHS = 3;      // ... over the last 3 months
+  var PAGE = 40;
+
+  var ALL = [], TREND = {}, view = 'atrisk', query = '', limit = PAGE;
+
+  function esc(v) { return String(v).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function pct(n, d) { return d ? (n / d * 100) : 0; }
+
+  function normalizeRow(row) {
+    var id = row.customer_ID || row.customer_id || row.id;
+    var p = parseFloat(row.p_fused);
+    if (!id || isNaN(p)) return null;
+    var level = row.risk_level || (p >= CUTS.Critical ? 'Critical' : p >= CUTS.High ? 'High' : p >= CUTS.Moderate ? 'Moderate' : 'Low');
+    return { customer_ID: String(id), display_name: row.display_name || String(id), p_fused: p, risk_level: level, action: row.action || '' };
+  }
+
+  // ---------- views for the priority list ----------
+  var VIEWS = {
+    atrisk:   { label: 'All at-risk', color: '#E9CB6F', test: function(c) { return c.risk_level === 'Critical' || c.risk_level === 'High'; } },
+    Critical: { label: 'Critical', color: COLORS.Critical, test: function(c) { return c.risk_level === 'Critical'; } },
+    High:     { label: 'High', color: COLORS.High, test: function(c) { return c.risk_level === 'High'; } },
+    near:     { label: 'Close to Critical', color: '#F59A5B', test: function(c) { return c.risk_level === 'High' && c.p_fused >= CUTS.Critical - NEAR_GAP; } },
+    rising:   { label: 'Rising fast', color: '#E98AD8', test: function(c) { return TREND[c.customer_ID] != null && TREND[c.customer_ID] >= RISE_PTS; } },
+    Moderate: { label: 'Moderate', color: COLORS.Moderate, test: function(c) { return c.risk_level === 'Moderate'; }, hidden: true },
+    Low:      { label: 'Low', color: COLORS.Low, test: function(c) { return c.risk_level === 'Low'; }, hidden: true }
+  };
+
+  function inView(name) { return ALL.filter(VIEWS[name].test).sort(function(a, b) { return b.p_fused - a.p_fused; }); }
+
+  // ---------- KPI row ----------
+  function renderKpis(counts) {
+    var total = ALL.length, atRisk = counts.Critical + counts.High;
+    var avg = ALL.reduce(function(s, c) { return s + c.p_fused; }, 0) / (total || 1);
+    var rising = ALL.filter(VIEWS.rising.test).length;
+    var tiles = [
+      { k: 'Customers monitored', v: fmt(total), s: 'Full scored portfolio', c: '#E9CB6F' },
+      { k: 'Need action today', v: fmt(counts.Critical), s: '<b>' + pct(counts.Critical, total).toFixed(1) + '%</b> of portfolio are Critical', c: COLORS.Critical },
+      { k: 'At risk', v: pct(atRisk, total).toFixed(1) + '%', s: '<b>' + fmt(atRisk) + '</b> customers are High or Critical', c: COLORS.High },
+      { k: 'Rising fast', v: fmt(rising), s: 'Up <b>' + Math.round(RISE_PTS * 100) + '+ pts</b> in the last ' + RISE_MONTHS + ' months', c: VIEWS.rising.color }
+    ];
+    document.getElementById('kpis').innerHTML = tiles.map(function(t) {
+      return '<div class="kpi" style="--c:' + t.c + '"><span class="k"><i></i>' + t.k + '</span><strong class="v">' + t.v + '</strong><span class="s">' + t.s + '</span></div>';
+    }).join('');
+  }
+
+  // ---------- tooltip ----------
+  var tip = document.getElementById('tip');
+  function showTip(e, html, color) {
+    tip.style.setProperty('--c', color || '#E9CB6F');
+    tip.innerHTML = html; tip.classList.add('show');
+    var x = e.clientX + 14, y = e.clientY + 14, r = tip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8) x = e.clientX - r.width - 14;
+    if (y + r.height > window.innerHeight - 8) y = e.clientY - r.height - 14;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  function hideTip() { tip.classList.remove('show'); }
+  function tipRows(title, rows) {
+    return '<b>' + title + '</b>' + rows.map(function(r) { return '<div class="r"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>'; }).join('');
+  }
+
+  // ---------- chart 1: 100% stacked bar ----------
+  function renderMix(counts) {
+    var total = ALL.length;
+    document.getElementById('mixSub').textContent = 'Each segment is a share of all ' + fmt(total) + ' customers';
+    document.getElementById('mixBar').innerHTML = LEVELS.map(function(l) {
+      var p = pct(counts[l], total);
+      return '<div class="mix-seg" data-l="' + l + '" style="--c:' + COLORS[l] + ';flex:' + counts[l] + ' 1 0">' + (p >= 7 ? '<span>' + Math.round(p) + '%</span>' : '') + '</div>';
+    }).join('');
+    document.getElementById('mixLegend').innerHTML = LEVELS.map(function(l) {
+      return '<div class="mix-row" data-l="' + l + '" style="--c:' + COLORS[l] + '"><i></i><span class="n">' + l + '</span><span class="c">' + fmt(counts[l]) + '</span><span class="p">' + pct(counts[l], total).toFixed(1) + '%</span></div>';
+    }).join('');
+  }
+  function mixHover(l, on) {
+    document.querySelectorAll('[data-l]').forEach(function(el) { el.classList.toggle('hot', on && el.getAttribute('data-l') === l); });
+  }
+  ['mixBar', 'mixLegend'].forEach(function(id) {
+    var el = document.getElementById(id);
+    el.addEventListener('mousemove', function(e) {
+      var t = e.target.closest('[data-l]'); if (!t) return;
+      var l = t.getAttribute('data-l'), n = ALL.filter(function(c) { return c.risk_level === l; });
+      var avg = n.reduce(function(s, c) { return s + c.p_fused; }, 0) / (n.length || 1);
+      mixHover(l, true);
+      showTip(e, tipRows(l + ' risk', [['Customers', fmt(n.length)], ['Share', pct(n.length, ALL.length).toFixed(1) + '%'], ['Avg score', Math.round(avg * 100)]]), COLORS[l]);
+    });
+    el.addEventListener('mouseleave', function() { mixHover(null, false); hideTip(); });
+    el.addEventListener('click', function(e) { var t = e.target.closest('[data-l]'); if (t) openView(t.getAttribute('data-l')); });
+  });
+
+  // ---------- chart 2: histogram with a broken tall bar ----------
+  function levelFor(p) { return p >= CUTS.Critical ? 'Critical' : p >= CUTS.High ? 'High' : p >= CUTS.Moderate ? 'Moderate' : 'Low'; }
+  function renderHist() {
+    var bins = [], i;
+    for (i = 0; i < 20; i++) bins.push(0);
+    ALL.forEach(function(c) { bins[Math.min(19, Math.floor(c.p_fused * 20))]++; });
+    var sorted = bins.slice().sort(function(a, b) { return b - a; });
+    // cap the axis at the 2nd tallest bar so the long Low tail doesn't flatten everything else
+    var cap = sorted[0] > sorted[1] * 2 ? Math.ceil(sorted[1] * 1.25 / 100) * 100 : Math.ceil(sorted[0] * 1.1 / 100) * 100;
+    var W = 640, H = 230, L = 38, R = 8, T = 16, B = 26, pw = W - L - R, ph = H - T - B, bw = pw / 20;
+    var svg = document.getElementById('hist');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    var out = '';
+    for (i = 0; i <= 4; i++) {
+      var gv = cap / 4 * i, gy = T + ph - ph * i / 4;
+      out += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + gy + '" y2="' + gy + '"/>' +
+             '<text class="axis-t" x="' + (L - 6) + '" y="' + (gy + 3) + '" text-anchor="end">' + fmt(Math.round(gv)) + '</text>';
+    }
+    [0, 10, 30, 60, 100].forEach(function(v) {
+      out += '<text class="axis-t" x="' + (L + pw * v / 100) + '" y="' + (H - 8) + '" text-anchor="middle">' + v + '</text>';
+    });
+    bins.forEach(function(n, b) {
+      var lo = b * 5, lvl = levelFor(lo / 100 + 0.0001), h = Math.min(n, cap) / cap * ph;
+      var x = L + b * bw + 1, w = bw - 2, y = T + ph - h;
+      if (n > 0) {
+        out += '<path class="bar" data-b="' + b + '" fill="' + COLORS[lvl] + '" d="M' + x + ',' + (T + ph) + 'V' + (y + 4) + 'Q' + x + ',' + y + ' ' + (x + 4) + ',' + y + 'H' + (x + w - 4) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + 4) + 'V' + (T + ph) + 'Z"/>';
+      }
+      if (n > cap) {
+        out += '<line class="brk" x1="' + (x - 2) + '" x2="' + (x + w + 2) + '" y1="' + (T + 22) + '" y2="' + (T + 16) + '"/>' +
+               '<text class="cap-t" x="' + (x + w / 2) + '" y="' + (T - 4) + '" text-anchor="middle">' + fmt(n) + '</text>';
+      }
+      out += '<rect class="hit" data-b="' + b + '" data-n="' + n + '" data-l="' + lvl + '" x="' + (L + b * bw) + '" y="' + T + '" width="' + bw + '" height="' + ph + '"/>';
+    });
+    [['Moderate', 10], ['High', 30], ['Critical', 60]].forEach(function(t) {
+      var tx = L + pw * t[1] / 100;
+      out += '<line class="thr" x1="' + tx + '" x2="' + tx + '" y1="' + (T - 6) + '" y2="' + (T + ph) + '"/>' +
+             '<text class="thr-t" x="' + (tx + 4) + '" y="' + (T + 4) + '">' + t[0] + ' ≥ ' + t[1] + '</text>';
+    });
+    svg.innerHTML = out;
+  }
+  var hist = document.getElementById('hist');
+  hist.addEventListener('mousemove', function(e) {
+    var t = e.target.closest('.hit'); if (!t) return;
+    var b = +t.getAttribute('data-b'), n = +t.getAttribute('data-n');
+    hist.classList.add('dim');
+    hist.querySelectorAll('.bar').forEach(function(el) { el.classList.toggle('on', +el.getAttribute('data-b') === b); });
+    showTip(e, tipRows('Score ' + (b * 5) + '–' + (b * 5 + 5), [['Customers', fmt(n)], ['Share', pct(n, ALL.length).toFixed(1) + '%'], ['Level', t.getAttribute('data-l')]]), COLORS[t.getAttribute('data-l')]);
+  });
+  hist.addEventListener('mouseleave', function() { hist.classList.remove('dim'); hideTip(); });
+  hist.addEventListener('click', function(e) { var t = e.target.closest('.hit'); if (t) openView(t.getAttribute('data-l')); });
+
+  // ---------- decision playbook ----------
+  function renderPlays(counts) {
+    var total = ALL.length;
+    document.getElementById('plays').innerHTML = LEVELS.map(function(l) {
+      var sample = ALL.find(function(c) { return c.risk_level === l && c.action; });
+      var act = sample ? sample.action.replace(/^[A-Za-z ]{3,20}:\s*/, '') : '—';
+      act = act.charAt(0).toUpperCase() + act.slice(1);
+      return '<div class="play' + (l === 'Critical' ? ' urgent' : '') + '" style="--c:' + COLORS[l] + '">' +
+        '<div class="play-top"><span class="chip"><i></i>' + l + '</span><span class="prio">' + PLAY[l].prio + '</span></div>' +
+        '<div class="count">' + fmt(counts[l]) + '<small>' + pct(counts[l], total).toFixed(1) + '%</small></div>' +
+        '<div class="verb">' + PLAY[l].verb + '</div>' +
+        '<div class="act">' + esc(act) + '</div>' +
+        '<div class="btns"><button type="button" class="btn ghost" data-view="' + l + '">Review list</button>' +
+        '<button type="button" class="btn ghost" data-export="' + l + '">Export</button></div>' +
+      '</div>';
+    }).join('');
+
+    var near = ALL.filter(VIEWS.near.test).length, rising = ALL.filter(VIEWS.rising.test).length;
+    document.getElementById('warns').innerHTML =
+      '<div class="warn" style="--c:' + VIEWS.near.color + '"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg></span>' +
+        '<div class="tx"><b>Close to Critical</b><span>High customers within ' + Math.round(NEAR_GAP * 100) + ' points of the Critical line. Act before they cross it.</span></div>' +
+        '<span class="num">' + fmt(near) + '</span><button type="button" class="btn ghost" data-view="near">Review</button></div>' +
+      '<div class="warn" style="--c:' + VIEWS.rising.color + '"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>' +
+        '<div class="tx"><b>Rising fast</b><span>Score up ' + Math.round(RISE_PTS * 100) + '+ points in the last ' + RISE_MONTHS + ' months, whatever their level today.</span></div>' +
+        '<span class="num">' + fmt(rising) + '</span><button type="button" class="btn ghost" data-view="rising">Review</button></div>';
+  }
+
+  // ---------- priority list ----------
+  function renderTabs() {
+    document.getElementById('tabs').innerHTML = Object.keys(VIEWS).filter(function(k) { return !VIEWS[k].hidden || k === view; }).map(function(k) {
+      return '<button type="button" class="tab' + (k === view ? ' active' : '') + '" data-tab="' + k + '" style="--c:' + VIEWS[k].color + '">' + VIEWS[k].label + ' <span class="n">' + fmt(ALL.filter(VIEWS[k].test).length) + '</span></button>';
+    }).join('');
+  }
+
+  function currentRows() {
+    var q = query.toLowerCase();
+    return inView(view).filter(function(c) { return !q || c.customer_ID.toLowerCase().indexOf(q) !== -1 || c.display_name.toLowerCase().indexOf(q) !== -1; });
+  }
+
+  var GO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+  function renderRows(from) {
+    var rows = currentRows(), shown = rows.slice(0, limit);
+    document.getElementById('listPanel').style.setProperty('--c', VIEWS[view].color);
+    document.getElementById('listMeta').textContent = 'Showing ' + fmt(shown.length) + ' of ' + fmt(rows.length) + ' · highest risk first · click a customer to open the full profile';
+    var start = from == null ? Infinity : from;
+    var head = '<div class="row head"><span>#</span><span>Customer</span><span>Score</span><span class="lvl-col">Level</span><span>3-mo trend</span><span class="act">Next step</span><span></span></div>';
+    document.getElementById('rows').innerHTML = shown.length ? head + shown.map(function(c, i) {
+      var t = TREND[c.customer_ID], tr;
+      if (t == null) tr = '<span class="trend flat">—</span>';
+      else { var d = Math.round(t * 100); tr = '<span class="trend ' + (d >= 3 ? 'up' : d <= -3 ? 'down' : 'flat') + '">' + (d >= 3 ? '▲ +' + d : d <= -3 ? '▼ ' + d : '● ' + d) + '</span>'; }
+      var act = c.action.replace(/^[A-Za-z ]{3,20}:\s*/, '');
+      return '<a class="row' + (i >= start ? ' enter' : '') + '" href="profile.html?id=' + encodeURIComponent(c.customer_ID) + '" style="--c:' + COLORS[c.risk_level] + (i >= start ? ';--d:' + Math.min(i - start, 20) * 16 + 'ms' : '') + '">' +
+        '<span class="rk">#' + String(i + 1).padStart(3, '0') + '</span>' +
+        '<span><span class="nm">' + esc(c.display_name) + '</span><span class="id">' + esc(c.customer_ID.slice(0, 18)) + '…</span></span>' +
+        '<span class="score"><b>' + Math.round(c.p_fused * 100) + '</b><span class="meter"><i style="width:' + (c.p_fused * 100).toFixed(1) + '%"></i></span></span>' +
+        '<span class="lvl-col"><span class="chip" style="--c:' + COLORS[c.risk_level] + '"><i></i>' + c.risk_level + '</span></span>' +
+        tr +
+        '<span class="act">' + esc(act.charAt(0).toUpperCase() + act.slice(1)) + '</span>' +
+        '<span class="go">' + GO + '</span></a>';
+    }).join('') : '<div class="empty">No customers match this view.</div>';
+    document.getElementById('more').hidden = rows.length <= limit;
+  }
+
+  function openView(name) {
+    view = name; limit = PAGE;
+    renderTabs(); renderRows(0);
+    document.getElementById('listHead').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function exportRows(rows, name) {
+    var q = function(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var lines = ['customer_ID,display_name,risk_score,risk_level,trend_3mo_pts,action'];
+    rows.forEach(function(c) {
+      var t = TREND[c.customer_ID];
+      lines.push([c.customer_ID, c.display_name, Math.round(c.p_fused * 100), c.risk_level, t == null ? '' : Math.round(t * 100), c.action].map(q).join(','));
+    });
+    if (!rows.length) {
+      showToast('warn', 'Nothing to export', 'This list has no customers, so no file was created.');
+      return;
+    }
+    var file = 'firasa_' + name + '_customers.csv';
+    var url = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = file;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
+    showToast('ok', 'Export complete', fmt(rows.length) + ' customer' + (rows.length === 1 ? '' : 's') + " exported. Check your browser's downloads.", file);
+  }
+
+  var toastTimer = null;
+  var TOAST_ICONS = {
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path class="draw" d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>'
+  };
+  function showToast(kind, title, text, file) {
+    var t = document.getElementById('toast'), life = kind === 'ok' ? 5000 : 4000;
+    clearTimeout(toastTimer);
+    t.classList.remove('show');
+    t.className = 'toast' + (kind === 'warn' ? ' warn' : '');
+    t.style.setProperty('--life', life + 'ms');
+    t.innerHTML = '<span class="toast-ic">' + TOAST_ICONS[kind] + '</span>' +
+      '<div class="toast-tx"><b>' + esc(title) + '</b><span>' + esc(text) + '</span>' + (file ? '<code>' + esc(file) + '</code>' : '') + '</div>' +
+      '<button type="button" class="toast-x" aria-label="Dismiss">' + TOAST_ICONS.close + '</button><span class="toast-bar"></span>';
+    void t.offsetWidth;
+    t.classList.add('show');
+    toastTimer = setTimeout(hideToast, life);
+  }
+  function hideToast() { clearTimeout(toastTimer); document.getElementById('toast').classList.remove('show'); }
+  document.getElementById('toast').addEventListener('click', function(e) { if (e.target.closest('.toast-x')) hideToast(); });
+  document.getElementById('toast').addEventListener('mouseenter', function() { clearTimeout(toastTimer); var bar = this.querySelector('.toast-bar'); if (bar) bar.style.animationPlayState = 'paused'; });
+  document.getElementById('toast').addEventListener('mouseleave', function() { if (!this.classList.contains('show')) return; var bar = this.querySelector('.toast-bar'); if (bar) bar.style.animationPlayState = 'running'; toastTimer = setTimeout(hideToast, 1500); });
+
+  document.getElementById('tabs').addEventListener('click', function(e) {
+    var t = e.target.closest('.tab'); if (!t) return;
+    view = t.getAttribute('data-tab'); limit = PAGE; renderTabs(); renderRows(0);
+  });
+  document.getElementById('search').addEventListener('input', function(e) { query = e.target.value.trim(); limit = PAGE; renderRows(0); });
+  document.getElementById('more').addEventListener('click', function() { var prev = limit; limit += PAGE; renderRows(prev); });
+  document.getElementById('plays').addEventListener('click', handleActions);
+  document.getElementById('warns').addEventListener('click', handleActions);
+  function handleActions(e) {
+    var v = e.target.closest('[data-view]'); if (v) { openView(v.getAttribute('data-view')); return; }
+    var x = e.target.closest('[data-export]'); if (x) { var n = x.getAttribute('data-export'); exportRows(inView(n), n.toLowerCase()); }
+  }
+  document.getElementById('exportAll').addEventListener('click', function() { exportRows(inView('atrisk'), 'at_risk'); });
+  document.getElementById('exportView').addEventListener('click', function() { exportRows(currentRows(), view.toLowerCase()); });
+
+  // ---------- load ----------
+  function renderAll() {
+    var counts = { Critical: 0, High: 0, Moderate: 0, Low: 0 };
+    ALL.forEach(function(c) { counts[c.risk_level] = (counts[c.risk_level] || 0) + 1; });
+    renderKpis(counts); renderMix(counts); renderHist(); renderPlays(counts); renderTabs(); renderRows(0);
+  }
+
+  function buildTrend(rows) {
+    var by = {};
+    rows.forEach(function(r) {
+      var id = r.customer_ID, p = parseFloat(r.risk_score), m = parseFloat(r.month_index);
+      if (!id || isNaN(p)) return;
+      (by[id] = by[id] || []).push({ m: m, p: p });
+    });
+    TREND = {};
+    Object.keys(by).forEach(function(id) {
+      var s = by[id].sort(function(a, b) { return a.m - b.m; });
+      if (s.length < 2) return;
+      TREND[id] = s[s.length - 1].p - s[Math.max(0, s.length - 1 - RISE_MONTHS)].p;
+    });
+  }
+
+  function start(rows) {
+    ALL = rows;
+    if (typeof Papa === 'undefined') { renderAll(); return; }
+    Papa.parse('data/customer_trajectories.csv', {
+      download: true, header: true, skipEmptyLines: true,
+      complete: function(res) { buildTrend(res.data || []); renderAll(); },
+      error: function() { renderAll(); }
+    });
+  }
+
+  function loadSample() { start(SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean)); }
+  if (typeof Papa === 'undefined') loadSample();
+  else Papa.parse('data/customer_scores_with_shap.csv', {
+    download: true, header: true, skipEmptyLines: true,
+    complete: function(res) {
+      var rows = (res.data || []).map(normalizeRow).filter(Boolean);
+      if (rows.length) start(rows); else loadSample();
+    },
+    error: loadSample
+  });
+</script>
+<script src="assets/sky.js"></script>
+</body>
+</html>

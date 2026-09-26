@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Firasa | Risk Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<link rel="stylesheet" href="assets/firasa.css">
+<style>
+  :root {
+    --bg: #0D2B1E;
+    --bg-deep: #081C13;
+    --green: #1FA968;
+    --green-soft: #3FC98A;
+    --gold: #D4AF37;
+    --gold-light: #E9CB6F;
+    --text: #F3EFE3;
+    --text-dim: #A9B8AC;
+    --cyan: #37D6C6;
+    --panel: #071210;
+    --panel-2: #0B1414;
+    --low: #4682B4;
+    --moderate: #8FBF9F;
+    --high: #DAA520;
+    --critical: #B22222;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background:
+      radial-gradient(ellipse at 50% 18%, rgba(63,201,138,0.18) 0%, transparent 46%),
+      radial-gradient(ellipse at 50% 88%, rgba(212,175,55,0.1) 0%, transparent 48%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  body { animation: page-enter 650ms cubic-bezier(0.16, 1, 0.3, 1) backwards; transition: opacity 280ms ease, transform 280ms ease; }
+  body.page-leaving { opacity: 0; transform: translateY(8px); }
+  @keyframes page-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .starfield { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.7; background-image: radial-gradient(1.5px 1.5px at 12% 18%, rgba(233,203,111,0.55), transparent), radial-gradient(1.5px 1.5px at 78% 12%, rgba(233,203,111,0.4), transparent), radial-gradient(1px 1px at 35% 82%, rgba(63,201,138,0.5), transparent), radial-gradient(1.5px 1.5px at 88% 65%, rgba(233,203,111,0.35), transparent), radial-gradient(1px 1px at 20% 55%, rgba(63,201,138,0.4), transparent), radial-gradient(1.5px 1.5px at 60% 90%, rgba(233,203,111,0.3), transparent); animation: drift 14s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translateY(0); opacity: 0.55; } to { transform: translateY(-10px); opacity: 0.9; } }
+
+  .wrap { max-width: 1220px; margin: 0 auto; padding: 20px 24px 48px; position: relative; z-index: 1; }
+
+  .search-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .search-box { position: relative; flex: 1; min-width: 220px; }
+  .search-box input {
+    width: 100%; padding: 11px 14px 11px 36px; border-radius: 10px;
+    border: 1px solid rgba(212,175,55,0.3); background: rgba(255,255,255,0.03);
+    color: var(--text); font-size: 13.5px; outline: none;
+  }
+  .search-box input:focus { border-color: var(--gold); }
+  .search-box input::placeholder { color: var(--text-dim); }
+  .search-box svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); opacity: 0.6; }
+  .search-suggestions {
+    position: absolute; top: calc(100% + 6px); right: 0; left: 0; z-index: 10;
+    display: none; max-height: 250px; overflow-y: auto; padding: 5px;
+    background: var(--panel); border: 1px solid rgba(212,175,55,0.35); border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+  }
+  .search-suggestions.show { display: block; }
+  .search-suggestion {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; padding: 9px 10px; border: 0; border-radius: 7px;
+    background: transparent; color: var(--text); cursor: pointer; text-align: right;
+  }
+  .search-suggestion:hover { background: rgba(55,214,198,0.1); }
+  .search-suggestion .suggestion-name { direction: ltr; text-align: left; font-size: 12px; font-weight: 600; }
+  .search-suggestion .suggestion-level { flex-shrink: 0; font-size: 10px; color: var(--text-dim); }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filters button {
+    font-size: 11.5px; font-weight: 600; color: var(--text); background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 8px 12px; cursor: pointer;
+  }
+  .filters button.off { opacity: 0.35; }
+  .filters button .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 5px; }
+
+  .console { background: var(--panel); border: 1px solid rgba(55,214,198,0.25); border-radius: 16px; overflow: hidden; }
+  .radar-stage {
+    position: relative; width: min(86vw, 480px); aspect-ratio: 1; margin: 34px auto 42px; padding: 0; display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(circle at 50% 48%, rgba(63,201,138,0.2), transparent 54%),
+      radial-gradient(circle, rgba(8,28,19,0.94), rgba(7,18,16,0.45) 72%, transparent 73%);
+    border: 1px solid rgba(233,203,111,0.7); border-radius: 50%;
+    box-shadow: 0 0 0 7px rgba(212,175,55,0.06), 0 0 0 14px rgba(31,169,104,0.05), 0 0 54px rgba(212,175,55,0.2), inset 0 0 34px rgba(63,201,138,0.12);
+  }
+  .radar-stage::before,
+  .radar-stage::after {
+    content: ''; position: absolute; border-radius: 50%; pointer-events: none;
+  }
+  .radar-stage::before { inset: -20px; border: 1px solid rgba(212,175,55,0.28); box-shadow: 0 0 22px rgba(212,175,55,0.16); }
+  .radar-stage::after { inset: -31px; border: 1px dashed rgba(233,203,111,0.2); }
+  .radar-stage svg {
+    width: 100%; max-width: none; height: 100%; padding: 12px;
+    border-radius: 50%; filter: drop-shadow(0 0 18px rgba(55,214,198,0.16));
+  }
+  .radar-tooltip { position: absolute; z-index: 5; display: none; min-width: 150px; max-width: 220px; padding: 9px 11px; border: 1px solid rgba(233,203,111,0.55); border-radius: 9px; background: rgba(7,18,16,0.94); box-shadow: 0 8px 22px rgba(0,0,0,0.35), 0 0 16px rgba(55,214,198,0.12); color: var(--text); pointer-events: none; direction: ltr; text-align: left; }
+  .radar-tooltip.show { display: block; }
+  .radar-tooltip strong { display: block; overflow: hidden; color: var(--gold-light); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .radar-tooltip span { display: block; margin-top: 4px; color: var(--text-dim); font-size: 10px; }
+  .dot { cursor: pointer; }
+
+  .radar-intro { margin: 30px auto 8px; text-align: center; }
+  .radar-intro .eyebrow { color: var(--green-soft); font-size: 10px; letter-spacing: 2.5px; }
+  .radar-intro h1 { margin-top: 8px; color: var(--gold-light); font-family: 'Cinzel', 'Tahoma', sans-serif; font-size: clamp(22px, 3vw, 32px); font-weight: 700; text-shadow: 0 0 22px rgba(212,175,55,0.2); }
+  .radar-intro p { max-width: 560px; margin: 10px auto 0; color: var(--gold); font-family: 'Cinzel', 'Tahoma', sans-serif; font-size: 13px; line-height: 1.9; }
+
+  .legend { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; padding: 8px 16px 16px; font-size: 11.5px; color: var(--text-dim); }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 18px 20px 10px; }
+  .list-head .t { font-size: 15px; font-weight: 700; color: var(--gold-light); text-shadow: 0 0 16px rgba(212,175,55,0.18); }
+  .list-head .s { font-size: 10.5px; color: var(--green-soft); }
+  .total-note { display: block; margin-top: 5px; color: var(--text-dim); font-size: 10px; }
+
+  .risk-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 16px 14px 6px; }
+  .summary-card { --summary-color: var(--cyan); position: relative; overflow: hidden; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--summary-color) 38%, rgba(63,201,138,0.16)); border-radius: 12px; background: linear-gradient(145deg, color-mix(in srgb, var(--summary-color) 13%, transparent), rgba(8,28,19,0.46)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 18px rgba(3,15,10,0.15); }
+  .summary-card::after { content: ''; position: absolute; width: 70px; height: 70px; right: -28px; bottom: -38px; border: 1px solid color-mix(in srgb, var(--summary-color) 38%, transparent); border-radius: 50%; box-shadow: 0 0 20px color-mix(in srgb, var(--summary-color) 24%, transparent); }
+  .summary-card.summary-critical { --summary-color: var(--critical); }
+  .summary-card.summary-high { --summary-color: var(--high); }
+  .summary-card.summary-moderate { --summary-color: var(--moderate); }
+  .summary-card.summary-low { --summary-color: var(--low); }
+  .summary-label { display: flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 10px; }
+  .summary-label i { width: 7px; height: 7px; border-radius: 50%; background: var(--summary-color); box-shadow: 0 0 9px var(--summary-color); }
+  .summary-value { display: block; margin-top: 6px; color: var(--summary-color); font-size: 24px; font-weight: 700; line-height: 1; }
+
+  .radar-list { background: rgba(8,28,19,0.34); border: 1px solid rgba(212,175,55,0.2); overflow: visible; box-shadow: 0 18px 44px rgba(3,15,10,0.2); }
+  .risk-lists { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 8px 0 16px; }
+  .risk-list { --risk-color: var(--cyan); min-width: 0; overflow: hidden; position: relative; background: linear-gradient(155deg, rgba(31,169,104,0.1), rgba(8,28,19,0.68)); border: 1px solid color-mix(in srgb, var(--risk-color) 48%, rgba(63,201,138,0.18)); border-radius: 16px; box-shadow: 0 10px 24px rgba(3,15,10,0.24), inset 0 1px 0 rgba(255,255,255,0.08); backdrop-filter: blur(8px); transition: transform 180ms ease, box-shadow 180ms ease; }
+  .risk-list::before { content: ''; display: block; height: 4px; background: linear-gradient(90deg, transparent, var(--risk-color), transparent); box-shadow: 0 0 18px var(--risk-color); }
+  .risk-list:hover { transform: translateY(-4px); box-shadow: 0 16px 30px rgba(3,15,10,0.35), 0 0 24px color-mix(in srgb, var(--risk-color) 18%, transparent), inset 0 1px 0 rgba(255,255,255,0.1); }
+  .risk-list.risk-critical { --risk-color: #F06A68; background: radial-gradient(circle at 100% 0%, rgba(178,34,34,0.3), transparent 42%), linear-gradient(155deg, rgba(104,24,30,0.5), rgba(8,28,19,0.72)); }
+  .risk-list.risk-high { --risk-color: #F0C45B; background: radial-gradient(circle at 100% 0%, rgba(218,165,32,0.28), transparent 42%), linear-gradient(155deg, rgba(92,74,22,0.45), rgba(8,28,19,0.72)); }
+  .risk-list.risk-moderate { --risk-color: #72E0A9; background: radial-gradient(circle at 100% 0%, rgba(63,201,138,0.25), transparent 42%), linear-gradient(155deg, rgba(19,93,66,0.42), rgba(8,28,19,0.72)); }
+  .risk-list.risk-low { --risk-color: #77BCE8; background: radial-gradient(circle at 100% 0%, rgba(70,130,180,0.28), transparent 42%), linear-gradient(155deg, rgba(25,76,103,0.44), rgba(8,28,19,0.72)); }
+  .risk-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 14px 11px; border-bottom: 1px solid color-mix(in srgb, var(--risk-color) 30%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--risk-color) 16%, transparent), transparent 70%); }
+  .risk-list-head .eyebrow { display: block; color: var(--text-dim); font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; }
+  .risk-list-head h3 { margin-top: 3px; color: var(--risk-color); font-size: 15px; }
+  .risk-count { display: grid; place-items: center; min-width: 28px; height: 28px; border: 1px solid color-mix(in srgb, var(--risk-color) 55%, transparent); border-radius: 50%; color: var(--risk-color); font-size: 11px; font-weight: 700; }
+  .risk-list-items { padding: 5px 6px 8px; max-height: 430px; overflow-y: auto; counter-reset: customer; scrollbar-width: thin; scrollbar-color: rgba(233,203,111,0.5) transparent; }
+  .risk-list-items::-webkit-scrollbar { width: 5px; }
+  .risk-list-items::-webkit-scrollbar-thumb { background: rgba(233,203,111,0.45); border-radius: 999px; }
+  .target-row { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease; }
+  .target-row:last-child { border-bottom: 0; }
+  .target-row:hover { background: color-mix(in srgb, var(--risk-color) 10%, transparent); box-shadow: inset 3px 0 0 var(--risk-color); transform: translateX(-3px); }
+  .target-row::before { counter-increment: customer; content: counter(customer, decimal-leading-zero); min-width: 19px; color: rgba(233,203,111,0.55); font-size: 9px; letter-spacing: 0.5px; }
+  .target-row .score { font-size: 16px; font-weight: 700; min-width: 38px; color: var(--risk-color) !important; }
+  .target-row .who { flex: 1; overflow: hidden; }
+  .target-row .who .nm { font-size: 12.5px; font-weight: 600; color: #fff; direction: ltr; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .target-row .who .meta { font-size: 10.5px; color: var(--text-dim); margin-top: 1px; }
+  .target-row .dotlvl { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px var(--risk-color); }
+
+  .empty-note { padding: 18px 10px; text-align: center; font-size: 11px; color: var(--text-dim); }
+
+  @media (max-width: 620px) {
+    .risk-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .risk-lists { grid-template-columns: 1fr; padding-inline: 10px; }
+  }
+
+  @media (min-width: 621px) and (max-width: 900px) {
+    .risk-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  /* ---------- customer pop-up (matches the Customer Profile pop-up) ---------- */
+  .overlay { --modal-color: var(--gold-light); position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--modal-color) 16%, transparent) 0%, rgba(3,7,6,0.86) 62%); backdrop-filter: blur(7px); opacity: 0; visibility: hidden; transition: opacity 260ms ease, visibility 0s linear 260ms; }
+  .overlay.show { opacity: 1; visibility: visible; transition: opacity 260ms ease; }
+  .modal { --modal-color: var(--gold-light); position: relative; width: min(480px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--modal-color) 38%, rgba(233,203,111,0.2)); background: radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--modal-color) 18%, transparent), transparent 42%), radial-gradient(circle at 100% 100%, rgba(212,175,55,0.08), transparent 45%), linear-gradient(150deg, rgba(15,51,36,0.98), rgba(7,18,16,0.99)); box-shadow: 0 30px 90px rgba(0,0,0,0.6), 0 0 60px color-mix(in srgb, var(--modal-color) 18%, transparent), inset 0 1px 0 rgba(255,255,255,0.08); transform: translateY(16px) scale(0.93); transition: transform 460ms cubic-bezier(0.16, 1, 0.3, 1); scrollbar-width: thin; scrollbar-color: rgba(233,203,111,0.4) transparent; }
+  .overlay.show .modal { transform: none; }
+  .modal::before { content: ''; position: sticky; top: 0; z-index: 2; display: block; height: 4px; background: linear-gradient(90deg, transparent, var(--modal-color), transparent); box-shadow: 0 0 18px var(--modal-color); }
+  .modal::after { content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 25%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--modal-color) 16%, transparent), transparent); transform: skewX(-16deg); opacity: 0; pointer-events: none; }
+  .overlay.show .modal::after { animation: modal-sheen 2.4s ease-in-out 400ms both; }
+  @keyframes modal-sheen { 0% { left: -40%; opacity: 0; } 25% { opacity: 1; } 75%, 100% { left: 130%; opacity: 0; } }
+  .modal-inner { padding: 18px 22px 22px; }
+
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .status-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--modal-color) 60%, transparent); background: color-mix(in srgb, var(--modal-color) 14%, transparent); color: var(--modal-color); font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; }
+  .status-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--modal-color); box-shadow: 0 0 8px var(--modal-color); }
+  .modal-close { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.03); color: var(--text-dim); cursor: pointer; transition: color 150ms ease, border-color 150ms ease, background 150ms ease, transform 200ms ease; }
+  .modal-close svg { width: 15px; height: 15px; }
+  .modal-close:hover { color: #fff; border-color: #F06A68; background: rgba(240,106,104,0.18); transform: rotate(90deg); }
+
+  .modal-ident { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+  .modal-avatar { position: relative; display: grid; place-items: center; width: 54px; height: 54px; flex-shrink: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--modal-color) 40%, #0B1414), #0B1414 75%); color: #fff; font-family: 'Cinzel', Georgia, serif; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  .modal-avatar::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; background: conic-gradient(from 0deg, var(--modal-color), transparent 30%, var(--gold-light) 55%, transparent 80%, var(--modal-color)); -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%); animation: modal-orbit 5s linear infinite; }
+  @keyframes modal-orbit { to { transform: rotate(360deg); } }
+  .modal-name { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2; }
+  .modal-sub { margin-top: 4px; color: var(--text-dim); font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+
+  .modal-action { position: relative; overflow: hidden; margin-top: 18px; padding: 16px 16px 16px 18px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--modal-color) 55%, transparent); background: linear-gradient(110deg, color-mix(in srgb, var(--modal-color) 22%, transparent), color-mix(in srgb, var(--modal-color) 5%, transparent) 70%); box-shadow: inset 4px 0 0 var(--modal-color), 0 10px 26px rgba(0,0,0,0.2), 0 0 26px color-mix(in srgb, var(--modal-color) 14%, transparent); color: #fff; font-size: 15px; font-weight: 600; line-height: 1.5; }
+  .modal-action.urgent { animation: modal-action-pulse 2.4s ease-in-out infinite; }
+  @keyframes modal-action-pulse { 0%, 100% { box-shadow: inset 4px 0 0 var(--modal-color), 0 10px 26px rgba(0,0,0,0.2), 0 0 16px color-mix(in srgb, var(--modal-color) 12%, transparent); } 50% { box-shadow: inset 4px 0 0 var(--modal-color), 0 10px 26px rgba(0,0,0,0.2), 0 0 34px color-mix(in srgb, var(--modal-color) 38%, transparent); } }
+  .modal-action-label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--modal-color); font-size: 10.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+  .modal-action-label svg { width: 15px; height: 15px; filter: drop-shadow(0 0 6px var(--modal-color)); }
+
+  .pulse-card { margin-top: 16px; padding: 14px 14px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(7,18,16,0.55); }
+  .pulse-head { display: flex; justify-content: space-between; align-items: center; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+  .pulse-head b { color: var(--modal-color); font-size: 11px; letter-spacing: 0.6px; }
+  .pulse-svg { display: block; width: 100%; height: 86px; margin-top: 8px; overflow: visible; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--modal-color) 45%, transparent)); }
+  .modal-cta { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; padding: 13px; border-radius: 999px; border: 1px solid var(--gold); background: linear-gradient(180deg, rgba(212,175,55,0.22), rgba(212,175,55,0.06)); color: var(--gold-light); font-size: 13.5px; font-weight: 600; text-decoration: none; box-shadow: 0 0 20px rgba(212,175,55,0.14); transition: box-shadow 200ms ease, transform 200ms ease; }
+  .modal-cta:hover { transform: translateY(-1px); box-shadow: 0 0 30px rgba(212,175,55,0.32); }
+  body.modal-open { overflow: hidden; }
+  @media (max-width: 620px) { .overlay { padding: 12px; } .modal { max-height: calc(100vh - 24px); } .modal-inner { padding: 14px 16px 18px; } }
+
+</style>
+</head>
+<body>
+  <div class="sky sky-soft" id="sky" data-density="0.35" aria-hidden="true"></div>
+  <div class="starfield" aria-hidden="true"></div>
+
+  <div class="topbar">
+    <a href="landing.html" class="brand"><span class="mark">FIRASA</span><span class="page">The sixth sense for credit risk.</span></a>
+    <div class="nav">
+      <a href="landing.html">Home</a>
+      <a href="radar.html" class="active">Radar</a>
+      <a href="profile.html">Customer Profile</a>
+      <a href="manager.html">Manager Dashboard</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="search-row">
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E9CB6F" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search" type="text" placeholder="Search by name or customer ID..." autocomplete="off" />
+        <div id="searchSuggestions" class="search-suggestions"></div>
+      </div>
+      <div class="filters" id="filters"></div>
+    </div>
+
+      <div class="radar-intro">
+        <div class="eyebrow">FIRASA INTELLIGENCE SYSTEM</div>
+        <h1>Credit Risk Detection Radar</h1>
+        <p>Spot customer risk early and take action with confidence.</p>
+      </div>
+
+      <div class="radar-stage">
+        <svg viewBox="0 0 440 440" id="radarSvg">
+          <defs>
+            <radialGradient id="sweepGrad" cx="0%" cy="0%" r="100%">
+              <stop offset="0%" stop-color="#37D6C6" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="#37D6C6" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="220" cy="220" r="200" fill="none" stroke="rgba(55,214,198,0.35)" stroke-width="1.2"/>
+          <circle cx="220" cy="220" r="133" fill="none" stroke="rgba(55,214,198,0.2)" stroke-width="1"/>
+          <circle cx="220" cy="220" r="66" fill="none" stroke="rgba(55,214,198,0.2)" stroke-width="1"/>
+          <line x1="20" y1="220" x2="420" y2="220" stroke="rgba(55,214,198,0.15)" stroke-width="1"/>
+          <line x1="220" y1="20" x2="220" y2="420" stroke="rgba(55,214,198,0.15)" stroke-width="1"/>
+          <g>
+            <path d="M220,220 L220,20 A200,200 0 0,1 353,90 Z" fill="url(#sweepGrad)">
+              <animateTransform attributeName="transform" type="rotate" from="0 220 220" to="360 220 220" dur="5s" repeatCount="indefinite"/>
+            </path>
+          </g>
+          <circle cx="220" cy="220" r="3" fill="var(--cyan)"/>
+          <text x="220" y="215" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.35)">PORTFOLIO</text>
+          <g id="dotsLayer"></g>
+        </svg>
+        <div id="radarTooltip" class="radar-tooltip" role="status"></div>
+      </div>
+
+      <div class="legend" id="legend"></div>
+
+    <div class="console radar-list">
+      <div class="list-head">
+        <div>
+          <span class="t">Total Customer Distribution by Risk Category</span>
+          <span class="total-note">Counts represent the full customer portfolio</span>
+        </div>
+        <span class="s">Explore every risk category</span>
+      </div>
+      <div class="risk-summary" aria-label="Customer counts by risk category">
+        <div class="summary-card summary-critical"><span class="summary-label"><i></i>Critical customers</span><strong class="summary-value" id="summary-Critical">0</strong></div>
+        <div class="summary-card summary-high"><span class="summary-label"><i></i>High-risk customers</span><strong class="summary-value" id="summary-High">0</strong></div>
+        <div class="summary-card summary-moderate"><span class="summary-label"><i></i>Moderate-risk customers</span><strong class="summary-value" id="summary-Moderate">0</strong></div>
+        <div class="summary-card summary-low"><span class="summary-label"><i></i>Low-risk customers</span><strong class="summary-value" id="summary-Low">0</strong></div>
+      </div>
+      <div class="risk-lists" id="riskLists">
+        <section class="risk-list risk-critical">
+          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>Critical</h3></div><span class="risk-count" id="count-Critical">0</span></div>
+          <div class="risk-list-items" id="list-Critical"></div>
+          <div class="empty-note" id="empty-Critical" style="display:none;">No matching customers</div>
+        </section>
+        <section class="risk-list risk-high">
+          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>High</h3></div><span class="risk-count" id="count-High">0</span></div>
+          <div class="risk-list-items" id="list-High"></div>
+          <div class="empty-note" id="empty-High" style="display:none;">No matching customers</div>
+        </section>
+        <section class="risk-list risk-moderate">
+          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>Moderate</h3></div><span class="risk-count" id="count-Moderate">0</span></div>
+          <div class="risk-list-items" id="list-Moderate"></div>
+          <div class="empty-note" id="empty-Moderate" style="display:none;">No matching customers</div>
+        </section>
+        <section class="risk-list risk-low">
+          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>Low</h3></div><span class="risk-count" id="count-Low">0</span></div>
+          <div class="risk-list-items" id="list-Low"></div>
+          <div class="empty-note" id="empty-Low" style="display:none;">No matching customers</div>
+        </section>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    &copy; 2026 Firasa. Data Science Bootcamp project &mdash; SDA &amp; WeCloudData.
+  </footer>
+
+  <div class="overlay" id="overlay">
+    <div class="modal" id="modalBody"></div>
+  </div>
+
+<script src="assets/sample-data.js"></script>
+<script>
+  var LEVEL_COLORS = { Low: '#4682B4', Moderate: '#8FBF9F', High: '#DAA520', Critical: '#B22222' };
+  var LEVEL_LABEL = { Low: 'Low', Moderate: 'Moderate', High: 'High', Critical: 'Critical' };
+
+  var ALL = [];        // full loaded dataset (real CSV or sample fallback)
+  var TOP = [];         // top-N by risk, shown on the radar + default list
+  var activeFilters = { Low: true, Moderate: true, High: true, Critical: true };
+  var TRAJECTORIES_BY_ID = {};
+
+  function hashAngle(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) >>> 0; }
+    return (h % 3600) / 10;
+  }
+  function truncateId(id) {
+    return id.length > 18 ? id.slice(0, 18) + '…' : id;
+  }
+
+  function normalizeRow(row) {
+    var id = row.customer_ID || row.customer_id || row.id;
+    var p = parseFloat(row.p_fused);
+    var level = row.risk_level;
+    if (!id || isNaN(p)) return null;
+    if (!level) {
+      level = p >= 0.60 ? 'Critical' : p >= 0.30 ? 'High' : p >= 0.10 ? 'Moderate' : 'Low';
+    }
+    var name = row.display_name || truncateId(String(id));
+    return { customer_ID: String(id), display_name: name, p_fused: p, risk_level: level, action: row.action || 'Review the account and contact the customer.', angle: hashAngle(String(id)) };
+  }
+
+  function finishLoad(rows, sourceLabel) {
+    ALL = rows.filter(Boolean).sort(function(a, b) { return b.p_fused - a.p_fused; });
+    ['Critical', 'High', 'Moderate', 'Low'].forEach(function(level) {
+      document.getElementById('summary-' + level).textContent = ALL.filter(function(row) {
+        return row.risk_level === level;
+      }).length;
+    });
+    var order = ['Critical', 'High', 'Moderate', 'Low'];
+    var selected = [];
+    var selectedIds = {};
+    var perLevel = 40;
+    order.forEach(function(level) {
+      ALL.filter(function(row) { return row.risk_level === level; })
+        .slice(0, perLevel)
+        .forEach(function(row) {
+          selected.push(row);
+          selectedIds[row.customer_ID] = true;
+        });
+    });
+    ALL.forEach(function(row) {
+      if (selected.length < 20 && !selectedIds[row.customer_ID]) {
+        selected.push(row);
+      }
+    });
+    TOP = selected.sort(function(a, b) { return b.p_fused - a.p_fused; });
+    buildFilters();
+    buildRadarAndList(TOP);
+    loadTrajectories();
+  }
+
+  function loadTrajectories() {
+    if (typeof Papa === 'undefined') return;
+    Papa.parse('data/customer_trajectories.csv', {
+      download: true, header: true, skipEmptyLines: true,
+      complete: function(res) {
+        TRAJECTORIES_BY_ID = {};
+        (res.data || []).forEach(function(row) {
+          var id = row.customer_ID || row.customer_id || row.id;
+          var score = parseFloat(row.risk_score);
+          if (!id || isNaN(score)) return;
+          if (!TRAJECTORIES_BY_ID[id]) TRAJECTORIES_BY_ID[id] = [];
+          TRAJECTORIES_BY_ID[id].push(score);
+        });
+      }
+    });
+  }
+
+  function loadData() {
+    if (typeof Papa === 'undefined') { loadSample(); return; }
+    var path = 'data/customer_scores_with_shap.csv';
+    try {
+      Papa.parse(path, {
+        download: true, header: true, skipEmptyLines: true,
+        complete: function(res) {
+          if (res.errors && res.errors.length && (!res.data || res.data.length === 0)) {
+            loadSample(); return;
+          }
+          var rows = res.data.map(normalizeRow).filter(Boolean);
+          if (rows.length === 0) { loadSample(); return; }
+          finishLoad(rows, 'Showing live data from data/customer_scores_with_shap.csv (' + rows.length + ' customers)');
+        },
+        error: function() { loadSample(); }
+      });
+    } catch (e) { loadSample(); }
+  }
+  function loadSample() {
+    var rows = SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean);
+    finishLoad(rows, 'Notice: data/customer_scores_with_shap.csv was not found; showing demo data (' + rows.length + ' customers)');
+  }
+
+  function polar(angleDeg, score, radiusOffset) {
+    var maxR = 200, minR = 22;
+    var r = minR + (1 - score) * (maxR - minR) + (radiusOffset || 0);
+    var rad = angleDeg * Math.PI / 180;
+    return { x: 220 + r * Math.cos(rad), y: 220 + r * Math.sin(rad) };
+  }
+
+  function arrangeRadarRows(rows) {
+    return rows.map(function(row, index) {
+      var seed = hashAngle(row.customer_ID + ':layout');
+      return {
+        customer: row,
+        angle: (seed + index * 11.7) % 360,
+        radiusOffset: row.risk_level === 'Critical' ? (seed % 8) * 6 : (seed % 5) * 3
+      };
+    });
+  }
+
+  function buildFilters() {
+    var order = ['Low', 'Moderate', 'High', 'Critical'];
+    var el = document.getElementById('filters');
+    el.innerHTML = '';
+    order.forEach(function(lv) {
+      var btn = document.createElement('button');
+      btn.innerHTML = LEVEL_LABEL[lv] + '<span class="dot" style="background:' + LEVEL_COLORS[lv] + '"></span>';
+      btn.onclick = function() {
+        activeFilters[lv] = !activeFilters[lv];
+        btn.classList.toggle('off', !activeFilters[lv]);
+        applyFilters();
+      };
+      el.appendChild(btn);
+    });
+    var legendEl = document.getElementById('legend');
+    legendEl.innerHTML = order.map(function(lv) {
+      return '<span><i style="background:' + LEVEL_COLORS[lv] + '"></i>' + LEVEL_LABEL[lv] + '</span>';
+    }).join('');
+  }
+
+  function applyFilters() {
+    var filtered = TOP.filter(function(t) { return activeFilters[t.risk_level]; });
+    buildRadarAndList(filtered, true);
+  }
+
+  function searchMatches(query) {
+    var normalized = query.trim().toLowerCase();
+    if (!normalized) return [];
+    return ALL.filter(function(t) {
+      return t.display_name.toLowerCase().indexOf(normalized) !== -1 ||
+        t.customer_ID.toLowerCase().indexOf(normalized) !== -1;
+    });
+  }
+
+  function showSuggestions(matches) {
+    var el = document.getElementById('searchSuggestions');
+    el.innerHTML = matches.slice(0, 8).map(function(t) {
+      return '<button class="search-suggestion" type="button" data-customer-id="' + t.customer_ID + '">' +
+        '<span class="suggestion-name">' + t.display_name + '</span>' +
+        '<span class="suggestion-level">' + LEVEL_LABEL[t.risk_level] + '</span>' +
+        '</button>';
+    }).join('');
+    el.querySelectorAll('.search-suggestion').forEach(function(btn) {
+      btn.onclick = function() {
+        var selected = ALL.find(function(t) { return t.customer_ID === btn.dataset.customerId; });
+        if (!selected) return;
+        document.getElementById('search').value = selected.display_name;
+        el.classList.remove('show');
+        buildRadarAndList([selected], true);
+      };
+    });
+    el.classList.toggle('show', matches.length > 0);
+  }
+
+  function buildRadarAndList(rows, skipRadarUpdate) {
+    var layer = document.getElementById('dotsLayer');
+    layer.innerHTML = '';
+    arrangeRadarRows(rows).forEach(function(item) {
+      var t = item.customer;
+      var p = polar(item.angle, t.p_fused, item.radiusOffset);
+      var color = LEVEL_COLORS[t.risk_level];
+      var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('class', 'dot');
+      g.setAttribute('aria-label', t.display_name);
+      g.onclick = function() { openModal(t); };
+      g.onmouseenter = function(e) { showRadarTooltip(t, e); };
+      g.onmousemove = function(e) { showRadarTooltip(t, e); };
+      g.onmouseleave = function() { document.getElementById('radarTooltip').classList.remove('show'); };
+      var glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      glow.setAttribute('cx', p.x); glow.setAttribute('cy', p.y); glow.setAttribute('r', 15);
+      glow.setAttribute('fill', color); glow.setAttribute('opacity', 0.1);
+      g.appendChild(glow);
+      var halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      halo.setAttribute('cx', p.x); halo.setAttribute('cy', p.y); halo.setAttribute('r', 9);
+      halo.setAttribute('fill', 'none');
+      halo.setAttribute('stroke', color); halo.setAttribute('stroke-width', 1.1);
+      halo.setAttribute('stroke-opacity', 0.72);
+      g.appendChild(halo);
+      if (t.risk_level === 'Critical') {
+        var ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        ring.setAttribute('cx', p.x); ring.setAttribute('cy', p.y); ring.setAttribute('r', 14);
+        ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', color);
+        ring.setAttribute('stroke-width', 1.3); ring.setAttribute('opacity', 0.7);
+        var a1 = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+        a1.setAttribute('attributeName', 'r'); a1.setAttribute('values', '12;22;12');
+        a1.setAttribute('dur', '1.8s'); a1.setAttribute('repeatCount', 'indefinite');
+        var a2 = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+        a2.setAttribute('attributeName', 'opacity'); a2.setAttribute('values', '0.7;0;0.7');
+        a2.setAttribute('dur', '1.8s'); a2.setAttribute('repeatCount', 'indefinite');
+        ring.appendChild(a1); ring.appendChild(a2);
+        g.appendChild(ring);
+      }
+      var core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      core.setAttribute('cx', p.x); core.setAttribute('cy', p.y);
+      core.setAttribute('r', t.risk_level === 'Critical' ? 5.5 : 4.5);
+      core.setAttribute('fill', color);
+      core.setAttribute('fill-opacity', 0.92);
+      var corePulse = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+      corePulse.setAttribute('attributeName', 'opacity');
+      corePulse.setAttribute('values', '0.72;1;0.72');
+      corePulse.setAttribute('dur', t.risk_level === 'Critical' ? '1.4s' : '2.6s');
+      corePulse.setAttribute('repeatCount', 'indefinite');
+      core.appendChild(corePulse);
+      g.appendChild(core);
+      layer.appendChild(g);
+    });
+
+    ['Critical', 'High', 'Moderate', 'Low'].forEach(function(level) {
+      var levelRows = rows.filter(function(t) { return t.risk_level === level; });
+      var listEl = document.getElementById('list-' + level);
+      listEl.innerHTML = '';
+      document.getElementById('count-' + level).textContent = levelRows.length;
+      document.getElementById('empty-' + level).style.display = levelRows.length ? 'none' : 'block';
+      levelRows.forEach(function(t) {
+        var row = document.createElement('div');
+        row.className = 'target-row';
+        row.onclick = function() { openModal(t); };
+        row.innerHTML =
+          '<div class="score">' + Math.round(t.p_fused * 100) + '</div>' +
+          '<div class="who"><div class="nm">' + t.display_name + '</div><div class="meta">' + LEVEL_LABEL[t.risk_level] + '</div></div>' +
+          '<span class="dotlvl" style="background:' + LEVEL_COLORS[t.risk_level] + '"></span>';
+        listEl.appendChild(row);
+      });
+    });
+  }
+
+  function showRadarTooltip(customer, event) {
+    var tooltip = document.getElementById('radarTooltip');
+    var stage = document.querySelector('.radar-stage');
+    var stageRect = stage.getBoundingClientRect();
+    tooltip.innerHTML = '';
+    var name = document.createElement('strong');
+    name.textContent = customer.display_name;
+    name.style.color = LEVEL_COLORS[customer.risk_level];
+    var meta = document.createElement('span');
+    meta.textContent = customer.risk_level + ' risk';
+    tooltip.appendChild(name);
+    tooltip.appendChild(meta);
+    tooltip.style.left = Math.min(event.clientX - stageRect.left + 14, stageRect.width - 170) + 'px';
+    tooltip.style.top = Math.max(event.clientY - stageRect.top - 20, 10) + 'px';
+    tooltip.classList.add('show');
+  }
+
+  function getPulseValues(customer) {
+    var values = TRAJECTORIES_BY_ID[customer.customer_ID];
+    if (values && values.length > 1) return values.slice(-13);
+    values = [];
+    for (var i = 0; i < 13; i++) {
+      var variation = ((hashAngle(customer.customer_ID + ':pulse:' + i) / 360) - 0.5) * 0.12;
+      values.push(Math.max(0, Math.min(1, customer.p_fused + variation)));
+    }
+    return values;
+  }
+
+  function buildPulseSvg(customer) {
+    var values = getPulseValues(customer);
+    var min = Math.min.apply(null, values);
+    var max = Math.max.apply(null, values);
+    var range = Math.max(max - min, 0.04);
+    var points = values.map(function(value, index) {
+      var x = index * (400 / Math.max(values.length - 1, 1));
+      var y = 66 - ((value - min) / range) * 48;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    var baseline = values.map(function(value, index) {
+      return (index * (400 / Math.max(values.length - 1, 1))).toFixed(1) + ',66';
+    }).join(' ');
+    var color = MODAL_COLORS[customer.risk_level] || LEVEL_COLORS[customer.risk_level];
+    return '<svg class="pulse-svg" viewBox="0 0 400 76" preserveAspectRatio="none" aria-label="Customer risk pulse">' +
+      '<line x1="0" y1="66" x2="400" y2="66" stroke="rgba(255,255,255,0.1)" />' +
+      '<polyline points="' + baseline + '" fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+      '<animate attributeName="points" from="' + baseline + '" to="' + points + '" dur="900ms" fill="freeze" />' +
+      '</polyline>' +
+      '<circle cx="' + points.split(' ').slice(-1)[0].split(',')[0] + '" cy="66" r="0" fill="' + color + '">' +
+      '<animate attributeName="cy" from="66" to="' + points.split(' ').slice(-1)[0].split(',')[1] + '" dur="900ms" fill="freeze" />' +
+      '<animate attributeName="r" from="0" to="4" dur="900ms" fill="freeze" />' +
+      '</circle>' +
+      '</svg>';
+  }
+
+  var MODAL_COLORS = { Critical: '#F06A68', High: '#F0C45B', Moderate: '#72E0A9', Low: '#77BCE8' };
+  var MODAL_ICONS = {
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+  };
+  function modalInitials(name) {
+    var parts = String(name || '').trim().split(/\s+/);
+    return ((parts[0] || '').charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '')).toUpperCase() || '?';
+  }
+
+  function openModal(t) {
+    var color = MODAL_COLORS[t.risk_level] || LEVEL_COLORS[t.risk_level];
+    var html = '<div class="modal-inner">'
+      + '<div class="modal-head">'
+      +   '<span class="status-chip"><i></i>' + LEVEL_LABEL[t.risk_level] + '</span>'
+      +   '<button type="button" class="modal-close" onclick="closeModal()" title="Close (Esc)" aria-label="Close">' + MODAL_ICONS.close + '</button>'
+      + '</div>'
+      + '<div class="modal-ident"><span class="modal-avatar">' + modalInitials(t.display_name) + '</span><div style="min-width:0">'
+      +   '<div class="modal-name">' + t.display_name + '</div>'
+      +   '<div class="modal-sub">Customer ID: ' + truncateId(t.customer_ID) + '</div>'
+      + '</div></div>'
+      + '<div class="modal-action' + (t.risk_level === 'Critical' ? ' urgent' : '') + '"><span class="modal-action-label">' + MODAL_ICONS.bolt + 'Recommended next step</span>' + t.action + '</div>'
+      + '<div class="pulse-card"><div class="pulse-head"><span>Customer risk pulse</span><b>' + LEVEL_LABEL[t.risk_level] + '</b></div>'
+      + buildPulseSvg(t)
+      + '</div>'
+      + '<a class="modal-cta" href="profile.html?id=' + encodeURIComponent(t.customer_ID) + '">Open full customer profile</a>'
+      + '</div>';
+    var modal = document.getElementById('modalBody');
+    var overlay = document.getElementById('overlay');
+    modal.style.setProperty('--modal-color', color);
+    overlay.style.setProperty('--modal-color', color);
+    modal.innerHTML = html;
+    modal.scrollTop = 0;
+    overlay.classList.add('show');
+    document.body.classList.add('modal-open');
+  }
+  function closeModal() {
+    document.getElementById('overlay').classList.remove('show');
+    document.body.classList.remove('modal-open');
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('overlay').classList.contains('show')) closeModal();
+  });
+  document.getElementById('overlay').addEventListener('click', function(e) {
+    if (e.target.id === 'overlay') closeModal();
+  });
+
+  document.getElementById('search').addEventListener('input', function(e) {
+    var q = e.target.value.trim();
+    if (!q) {
+      document.getElementById('searchSuggestions').classList.remove('show');
+      applyFilters();
+      return;
+    }
+    var matches = searchMatches(q);
+    showSuggestions(matches);
+    matches = matches.slice(0, 30);
+    buildRadarAndList(matches, true);
+  });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-box')) {
+      document.getElementById('searchSuggestions').classList.remove('show');
+    }
+  });
+
+  document.querySelectorAll('.nav a').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      if (link.target === '_blank' || link.href === window.location.href) return;
+      e.preventDefault();
+      document.body.classList.add('page-leaving');
+      setTimeout(function() { window.location.href = link.href; }, 280);
+    });
+  });
+
+  loadData();
+</script>
+<script src="assets/sky.js"></script>
+</body>
+</html>

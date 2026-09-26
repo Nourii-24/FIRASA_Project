@@ -1,0 +1,35 @@
+/* ==========================================================================
+   Firasa dashboard - shared styles
+   Loaded by every page before its own <style> block, so pages can override.
+   Colour tokens (--gold, --text, ...) are defined in each page's :root.
+   ========================================================================== */
+
+/* ---------- top bar & navigation ---------- */
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid rgba(212,175,55,0.18); flex-wrap: wrap; gap: 10px; position: relative; z-index: 1; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.brand .mark { font-family: 'Cinzel', Georgia, serif; font-weight: 700; font-size: 19px; color: var(--gold-light); letter-spacing: 0.5px; }
+.brand .page { padding-left: 12px; border-left: 1px solid rgba(212,175,55,0.32); color: var(--gold-light); font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-style: italic; }
+.nav { display: flex; align-items: stretch; gap: 2px; padding: 0 4px 5px; border-bottom: 1px solid rgba(212,175,55,0.32); }
+.nav a { position: relative; display: flex; align-items: center; padding: 9px 12px 8px; color: rgba(233,203,111,0.72); font-size: 12px; font-weight: 600; text-decoration: none; border-radius: 8px 8px 0 0; transition: color 200ms ease, background 200ms ease, text-shadow 200ms ease; }
+.nav a::after { content: ''; position: absolute; right: 10px; bottom: -6px; left: 10px; height: 2px; border-radius: 999px; background: var(--gold); opacity: 0; transform: scaleX(0.25); transition: opacity 220ms ease, transform 220ms ease, background 220ms ease, box-shadow 220ms ease; }
+.nav a:hover { color: var(--gold-light); background: rgba(212,175,55,0.06); text-shadow: 0 0 12px rgba(233,203,111,0.35); }
+.nav a:hover::after { opacity: 0.8; transform: scaleX(0.7); box-shadow: 0 0 10px var(--gold); }
+.nav a.active { color: var(--green-soft); background: radial-gradient(ellipse at 50% 100%, rgba(63,201,138,0.16), transparent 72%); text-shadow: 0 0 14px rgba(63,201,138,0.38); }
+.nav a.active::after { background: var(--green-soft); box-shadow: 0 0 14px var(--green-soft); opacity: 1; transform: scaleX(1); }
+
+/* ---------- footer ---------- */
+footer { position: relative; z-index: 1; text-align: center; padding: 22px 5vw 30px; font-size: 12px; color: var(--text-dim); border-top: 1px solid rgba(255,255,255,0.06); }
+
+/* ---------- twinkling sky (stars, sparkles, shooting stars) ---------- */
+.sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.sky-st { position: absolute; width: var(--s); height: var(--s); border-radius: 50%; background: var(--c); box-shadow: 0 0 calc(var(--s) * 3) var(--c); opacity: 0.15; animation: sky-twinkle var(--t) ease-in-out var(--d) infinite; }
+@keyframes sky-twinkle { 0%, 100% { opacity: 0.12; transform: scale(0.6); } 50% { opacity: var(--o); transform: scale(1); } }
+.sky-sp { position: absolute; width: var(--s); height: var(--s); opacity: 0; animation: sky-sparkle var(--t) ease-in-out var(--d) infinite; }
+.sky-sp::before, .sky-sp::after { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px; margin-top: -1px; border-radius: 999px; background: linear-gradient(90deg, transparent, var(--c), #FFF6D8, var(--c), transparent); box-shadow: 0 0 8px var(--c); }
+.sky-sp::after { transform: rotate(90deg); }
+.sky-sp i { position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #FFF6D8; box-shadow: 0 0 10px 3px var(--c); }
+@keyframes sky-sparkle { 0%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); } 45% { opacity: 1; transform: scale(1) rotate(45deg); } 60% { opacity: 0.9; transform: scale(0.85) rotate(60deg); } 80% { opacity: 0; transform: scale(0.3) rotate(90deg); } }
+.sky-shoot { position: absolute; width: 140px; height: 2px; border-radius: 999px; background: linear-gradient(90deg, transparent, rgba(233,203,111,0.9), #FFF6D8); box-shadow: 0 0 10px rgba(233,203,111,0.6); opacity: 0; transform: rotate(-24deg); animation: sky-shoot var(--t) linear var(--d) infinite; }
+@keyframes sky-shoot { 0% { opacity: 0; transform: rotate(-24deg) translateX(0); } 2% { opacity: 1; } 9% { opacity: 0; transform: rotate(-24deg) translateX(520px); } 100% { opacity: 0; transform: rotate(-24deg) translateX(520px); } }
+.sky-soft { opacity: 0.7; }
+@media (prefers-reduced-motion: reduce) { .sky-st, .sky-sp, .sky-shoot { animation: none; } .sky-sp { opacity: 0.6; } }
