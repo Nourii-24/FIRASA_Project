@@ -281,6 +281,7 @@
   </div>
 
 <script src="assets/sample-data.js"></script>
+<script src="assets/data-loader.js"></script>
 <script>
   var LEVEL_LABEL = { Low: 'Low', Moderate: 'Moderate', High: 'High', Critical: 'Critical' };
 
@@ -312,33 +313,18 @@
   }
 
   function loadCustomers(cb) {
-    if (typeof Papa === 'undefined') { cb(SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean), false); return; }
-    try {
-      Papa.parse('data/customer_scores_with_shap.csv', {
-        download: true, header: true, skipEmptyLines: true,
-        complete: function(res) {
-          var rows = (res.data || []).map(normalizeRow).filter(Boolean);
-          if (rows.length === 0) { cb(SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean), false); return; }
-          cb(rows, true);
-        },
-        error: function() { cb(SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean), false); }
-      });
-    } catch (e) { cb(SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean), false); }
+    FirasaData.load('customer_scores_with_shap', function(data) {
+      var rows = data.map(normalizeRow).filter(Boolean);
+      if (rows.length === 0) { cb(SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean), false); return; }
+      cb(rows, true);
+    });
   }
 
   function loadTrajectories(cb) {
-    if (typeof Papa === 'undefined') { cb(SAMPLE_TRAJ, false); return; }
-    try {
-      Papa.parse('data/customer_trajectories.csv', {
-        download: true, header: true, skipEmptyLines: true,
-        complete: function(res) {
-          var rows = res.data || [];
-          if (rows.length === 0) { cb(SAMPLE_TRAJ, false); return; }
-          cb(rows, true);
-        },
-        error: function() { cb(SAMPLE_TRAJ, false); }
-      });
-    } catch (e) { cb(SAMPLE_TRAJ, false); }
+    FirasaData.load('customer_trajectories', function(rows) {
+      if (rows.length === 0) { cb(SAMPLE_TRAJ, false); return; }
+      cb(rows, true);
+    });
   }
 
   function indexTrajectories(rows) {

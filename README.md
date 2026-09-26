@@ -101,15 +101,16 @@ CSVs directly in the browser.
 
 ### Run it locally
 
-The pages load CSV files, so serve the folder over HTTP rather than opening the files directly:
+Open `dashboard/index.html` directly, or serve the folder over HTTP:
 
 ```bash
 cd dashboard
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000>. Opened straight from disk, the pages fall back to a small
-demo dataset.
+and open <http://localhost:8000>. Over HTTP the pages read `data/*.csv`; opened straight from
+disk, the browser blocks that, so they read the same data from `data/offline-data.js`. After
+changing the CSVs, rebuild that file with `python dashboard/build_offline_data.py`.
 
 The dashboard can also be published as-is with **GitHub Pages**: set the Pages source to the
 repository's `dashboard/` folder, or copy its contents to the published branch.
@@ -166,12 +167,10 @@ Main libraries: `pandas`, `polars`, `scikit-learn`, `xgboost`, `lightgbm`, `tens
 
 ## Team
 
-| Name | Role | Contact |
-|---|---|---|
-| _Name_ | _Role_ | _GitHub / LinkedIn_ |
-| _Name_ | _Role_ | _GitHub / LinkedIn_ |
-| _Name_ | _Role_ | _GitHub / LinkedIn_ |
-| _Name_ | _Role_ | _GitHub / LinkedIn_ |
+### Noura Mesfer Alzahrani 
+### Layan Fahad Alhumaidi 
+### Abeer Mohammed Alshahrani 
+
 
 ## Acknowledgements
 

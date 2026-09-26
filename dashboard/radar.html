@@ -313,6 +313,7 @@
   </div>
 
 <script src="assets/sample-data.js"></script>
+<script src="assets/data-loader.js"></script>
 <script>
   var LEVEL_COLORS = { Low: '#4682B4', Moderate: '#8FBF9F', High: '#DAA520', Critical: '#B22222' };
   var LEVEL_LABEL = { Low: 'Low', Moderate: 'Moderate', High: 'High', Critical: 'Critical' };
@@ -348,7 +349,7 @@
     ['Critical', 'High', 'Moderate', 'Low'].forEach(function(level) {
       document.getElementById('summary-' + level).textContent = ALL.filter(function(row) {
         return row.risk_level === level;
-      }).length;
+      }).length.toLocaleString('en-US');
     });
     var order = ['Critical', 'High', 'Moderate', 'Low'];
     var selected = [];
@@ -374,39 +375,24 @@
   }
 
   function loadTrajectories() {
-    if (typeof Papa === 'undefined') return;
-    Papa.parse('data/customer_trajectories.csv', {
-      download: true, header: true, skipEmptyLines: true,
-      complete: function(res) {
-        TRAJECTORIES_BY_ID = {};
-        (res.data || []).forEach(function(row) {
-          var id = row.customer_ID || row.customer_id || row.id;
-          var score = parseFloat(row.risk_score);
-          if (!id || isNaN(score)) return;
-          if (!TRAJECTORIES_BY_ID[id]) TRAJECTORIES_BY_ID[id] = [];
-          TRAJECTORIES_BY_ID[id].push(score);
-        });
-      }
+    FirasaData.load('customer_trajectories', function(data) {
+      TRAJECTORIES_BY_ID = {};
+      data.forEach(function(row) {
+        var id = row.customer_ID || row.customer_id || row.id;
+        var score = parseFloat(row.risk_score);
+        if (!id || isNaN(score)) return;
+        if (!TRAJECTORIES_BY_ID[id]) TRAJECTORIES_BY_ID[id] = [];
+        TRAJECTORIES_BY_ID[id].push(score);
+      });
     });
   }
 
   function loadData() {
-    if (typeof Papa === 'undefined') { loadSample(); return; }
-    var path = 'data/customer_scores_with_shap.csv';
-    try {
-      Papa.parse(path, {
-        download: true, header: true, skipEmptyLines: true,
-        complete: function(res) {
-          if (res.errors && res.errors.length && (!res.data || res.data.length === 0)) {
-            loadSample(); return;
-          }
-          var rows = res.data.map(normalizeRow).filter(Boolean);
-          if (rows.length === 0) { loadSample(); return; }
-          finishLoad(rows, 'Showing live data from data/customer_scores_with_shap.csv (' + rows.length + ' customers)');
-        },
-        error: function() { loadSample(); }
-      });
-    } catch (e) { loadSample(); }
+    FirasaData.load('customer_scores_with_shap', function(data) {
+      var rows = data.map(normalizeRow).filter(Boolean);
+      if (rows.length === 0) { loadSample(); return; }
+      finishLoad(rows, 'Showing live data from data/customer_scores_with_shap.csv (' + rows.length + ' customers)');
+    });
   }
   function loadSample() {
     var rows = SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean);

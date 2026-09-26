@@ -262,6 +262,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="assets/sample-data.js"></script>
+<script src="assets/data-loader.js"></script>
 <script>
   var LEVELS = ['Critical', 'High', 'Moderate', 'Low'];
   var COLORS = { Critical: '#F06A68', High: '#F0C45B', Moderate: '#72E0A9', Low: '#77BCE8' };
@@ -566,23 +567,13 @@
 
   function start(rows) {
     ALL = rows;
-    if (typeof Papa === 'undefined') { renderAll(); return; }
-    Papa.parse('data/customer_trajectories.csv', {
-      download: true, header: true, skipEmptyLines: true,
-      complete: function(res) { buildTrend(res.data || []); renderAll(); },
-      error: function() { renderAll(); }
-    });
+    FirasaData.load('customer_trajectories', function(data) { buildTrend(data); renderAll(); });
   }
 
   function loadSample() { start(SAMPLE_CUSTOMERS.map(normalizeRow).filter(Boolean)); }
-  if (typeof Papa === 'undefined') loadSample();
-  else Papa.parse('data/customer_scores_with_shap.csv', {
-    download: true, header: true, skipEmptyLines: true,
-    complete: function(res) {
-      var rows = (res.data || []).map(normalizeRow).filter(Boolean);
-      if (rows.length) start(rows); else loadSample();
-    },
-    error: loadSample
+  FirasaData.load('customer_scores_with_shap', function(data) {
+    var rows = data.map(normalizeRow).filter(Boolean);
+    if (rows.length) start(rows); else loadSample();
   });
 </script>
 <script src="assets/sky.js"></script>
