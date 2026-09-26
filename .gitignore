@@ -1,14 +1,16 @@
-# Virtual environment, never commit this
+# Python / local environments
+.venv/
 dashboard/.venv/
 __pycache__/
 *.pyc
-.DS_Store
+.ipynb_checkpoints/
 
-# Streamlit secrets (API keys etc.), if you add any later
-dashboard/.streamlit/secrets.toml
+# OS files
+.DS_Store
+Thumbs.db
 
 # Raw EDA data does NOT belong in this repo: too large for GitHub (train/test
-# parquet files can be hundreds of MB), and the notebooks already read them
-# from Google Drive, not from a local copy. Only the small, exported dashboard
-# files (dashboard/data/*.csv) are meant to be tracked.
+# parquet files can be hundreds of MB), and the notebooks read them from
+# Kaggle / Google Drive, not from a local copy. Only the small exported
+# dashboard files (dashboard/data/*.csv) are tracked.
 *.parquet
