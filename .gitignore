@@ -14,3 +14,8 @@ Thumbs.db
 # Kaggle / Google Drive, not from a local copy. Only the small exported
 # dashboard files (dashboard/data/*.csv) are tracked.
 *.parquet
+
+# The API's drift-monitoring log (api/drift.py) -- runtime data generated
+# by running the container (see docker-compose.yml's logs/ volume), not
+# source. Each teammate/deployment accumulates their own.
+logs/

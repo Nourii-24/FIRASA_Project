@@ -1,0 +1,13 @@
+notebooks/
+dashboard/
+docs/
+logs/
+.git/
+.gitignore
+README.md
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.ipynb_checkpoints

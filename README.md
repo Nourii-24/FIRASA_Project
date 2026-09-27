@@ -126,8 +126,16 @@ Firasa/
 │   ├── manager.html            #   Manager dashboard
 │   ├── assets/                 #   Shared CSS/JS, card images, demo data
 │   └── data/                   #   Exported scores and monthly trajectories (from notebook 06)
+├── api/                        # Phase 6: FastAPI scoring service + drift monitor
+│   ├── main.py                 #   Endpoints (/predict, /model-info, /monitoring/*, ...)
+│   ├── inference.py             #   Loads models/, replays notebook 06's scoring pipeline
+│   ├── drift.py                 #   Data drift monitoring (input z-test, output PSI)
+│   ├── schemas.py / config.py   #   Request/response models, artifact paths
+│   └── README.md                #   Full API + drift-monitoring docs
 ├── models/                     # Trained artifacts: XGBoost, GRU, scaler, encoder, fusion
 ├── notebooks/                  # Full modelling pipeline, run in order
+├── logs/                       # Drift monitor's JSONL log (git-ignored, created at runtime)
+├── Dockerfile / docker-compose.yml   # Containerizes the api/ service (Phase 6)
 └── docs/                       # Project summary board (source of the image above)
 ```
 
@@ -153,6 +161,37 @@ The notebooks were built for **Google Colab** with Google Drive for intermediate
 
 Main libraries: `pandas`, `polars`, `scikit-learn`, `xgboost`, `lightgbm`, `tensorflow`/`keras`,
 `shap`, `matplotlib`, `seaborn`.
+
+## Phase 6: model serving API, Docker & drift monitoring
+
+The proposal's Phase 6 ("Containerize the model via Docker, expose it using a REST API
+(FastAPI), and establish monitoring tools to track data drift over time") lives in
+[`api/`](api/) — all three parts are implemented. It's a FastAPI service that loads the
+trained XGBoost, GRU, and fusion artifacts from `models/` and replays the same scoring
+pipeline `notebooks/Firasa_06_Dashboard_Export.ipynb` runs in bulk, per customer, on
+demand, and logs every prediction to a rolling drift monitor.
+
+```bash
+cd Firasa
+docker build -t firasa-api .
+docker run --rm -p 8000:8000 firasa-api
+# or, to persist drift history across restarts:
+docker compose up --build
+```
+
+Verified end to end, including a real `docker build`/`docker run` on Windows with Docker
+Desktop (not just this project's dev sandbox, whose network policy blocks container
+registries) — see [`api/README.md`](api/README.md#verified-so-far).
+
+`GET /monitoring/drift` reports Population Stability Index-style drift for the predicted
+risk levels and a mean-shift test for the model's most important input features, both
+against real reference numbers from the training artifacts and the held-out test set —
+see [`api/README.md`](api/README.md#data-drift-monitoring) for the method and why input
+and output drift are scored differently.
+
+See [`api/README.md`](api/README.md) for the request format, a ready-made sample request,
+and what's in scope versus a possible next step (live scoring from raw statement rows,
+Branch-1 input drift). Cloud deployment (Azure) is planned as the next step after this.
 
 ## Limitations
 

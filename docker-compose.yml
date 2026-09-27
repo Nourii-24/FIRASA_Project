@@ -1,0 +1,13 @@
+services:
+  firasa-api:
+    build: .
+    image: firasa-api:local
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      # Persists the drift monitor's JSONL log (api/drift.py) on the host,
+      # so GET /monitoring/drift keeps tracking "over time" across
+      # container restarts instead of resetting to an empty window.
+      # Safe to delete this folder any time to reset drift history.
+      - ./logs:/app/logs
