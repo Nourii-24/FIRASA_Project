@@ -168,3 +168,38 @@ survives a restart, not just within one process's memory.
   or ships alerts anywhere (email/Slack/PagerDuty). Fine for one instance
   and for the proposal's academic scope; a real deployment would want a
   shared store (e.g. a small database) and an alerting hook instead.
+
+
+## Deployed on Azure
+
+The API is live: **https://firasa-api.azurewebsites.net/docs**
+
+### Architecture
+- **Azure Container Registry** (`firasaacr2026`) stores the Docker image built from this
+  repo's root `Dockerfile`.
+- **Azure App Service** (Linux, container-based, plan `firasa-plan`) pulls that image and
+  runs it as `firasa-api`, exposing it publicly over HTTPS. `WEBSITES_PORT=8000` is set
+  since the container listens on 8000, not the platform default.
+
+### Redeploying after a code/model change
+```bash
+az acr login --name firasaacr2026
+docker build -t firasaacr2026.azurecr.io/firasa-api:v2 .
+docker push firasaacr2026.azurecr.io/firasa-api:v2
+az webapp config container set --name firasa-api --resource-group firasa-rg \
+  --docker-custom-image-name firasaacr2026.azurecr.io/firasa-api:v2
+az webapp restart --name firasa-api --resource-group firasa-rg
+```
+Registry credentials are never committed here -- fetch them fresh with:
+```bash
+az acr credential show --name firasaacr2026
+```
+
+### Note for teammates on Azure for Students
+This subscription tier restricts which regions you can deploy to. If `az acr create` /
+`az appservice plan create` fails with `RequestDisallowedByAzure`, find your allowed
+regions with:
+```bash
+az policy assignment list -o table
+az policy assignment show --name sys.regionrestriction --query "parameters" -o json
+```

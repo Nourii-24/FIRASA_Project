@@ -215,7 +215,7 @@ and output drift are scored differently.
 
 See [`api/README.md`](api/README.md) for the request format, a ready-made sample request,
 and what's in scope versus a possible next step (live scoring from raw statement rows,
-Branch-1 input drift). Cloud deployment (Azure) is planned as the next step after this.
+Branch-1 input drift). Deployed on Azure — live at **https://firasa-api.azurewebsites.net/docs**. See [`api/README.md`](api/README.md#deployed-on-azure) for the architecture and redeploy steps.
 
 ## Limitations
 
