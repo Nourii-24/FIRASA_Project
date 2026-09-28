@@ -37,11 +37,12 @@ training, tuning, or threshold selection, unless marked *validation*.
 
 | Metric | Result |
 |---|---|
-| Fusion ROC-AUC, last statement | **0.9581** |
-| Fusion ROC-AUC, 3 months before the last statement | **0.9433** |
-| Fusion ROC-AUC, 6 months before the last statement | **0.9329** |
+| Fusion ROC-AUC, last statement | **0.9582** |
+| Fusion ROC-AUC, 3 months before the last statement | **0.9443** |
+| Fusion ROC-AUC, 6 months before the last statement | **0.9337** |
 | Defaulters flagged High/Critical 6 months ahead *(validation)* | **85.7%** at ~14% false alarms |
-| Actual default rate, Low → Critical *(validation)* | **1.2% → 15.3% → 36.7% → 83.1%** |
+| Defaulters flagged High/Critical 3 months ahead / at the last statement *(validation)* | **89.4%** / **92.0%** |
+| Actual default rate, Low → Critical *(validation)* | **1.2% → 15.1% → 38.2% → 82.6%** |
 
 **Model ladder (ROC-AUC).** Every model had to beat the simpler one before it:
 
@@ -49,15 +50,21 @@ training, tuning, or threshold selection, unless marked *validation*.
 |---|---|---|
 | Naive baseline (rank by `P_2` only) | 0.9154 | validation |
 | Logistic Regression | 0.9513 | validation |
-| LightGBM | 0.9558 | validation |
-| LSTM (Branch 2 alternative) | 0.9527 | test |
-| GRU (Branch 2) | 0.9529 | test |
-| XGBoost (Branch 1) | 0.9579 | test |
-| **Fusion: XGBoost + GRU** | **0.9581** | test |
+| LightGBM | 0.9554 | validation |
+| LSTM (Branch 2 alternative) | 0.9526 | test |
+| GRU (Branch 2) | 0.9546 | test |
+| XGBoost (Branch 1) | 0.9574 | test |
+| **Fusion: XGBoost + GRU** | **0.9582** | test |
 
 The fusion's gain over XGBoost alone is statistically confirmed (bootstrap 95% CI excludes 0)
-at 6 and 3 months before the last statement, which is exactly the early-warning window the
-project targets. At the last statement the two are effectively tied.
+at 6 months before the last statement (+0.0033) and 3 months before (+0.0022), which is
+exactly the early-warning window the project targets. At the last statement the gain is
++0.0008 and the CI's lower bound sits right at zero, so there it is only marginally
+confirmed.
+
+**Why GRU over LSTM.** Notebook 05 rebuilds Branch 2 as an LSTM end to end. GRU wins both on
+its own (0.9546 vs 0.9526 on test) and once fused with XGBoost (0.9582 vs 0.9578), with a
+simpler two-gate cell that trains faster, so GRU stays as Branch 2.
 
 ## How it works
 
@@ -74,7 +81,7 @@ Branch 1 · XGBoost               Branch 2 · GRU
         └──────────────┬───────────────┘
                        ▼
         Fusion · logistic regression meta-model
-        (calibrated probability, ~52% XGBoost / 48% GRU)
+        (calibrated probability, ~47% XGBoost / 53% GRU)
                        ▼
         4 risk levels + recommended action
         Low < 10% · Moderate < 30% · High < 60% · Critical ≥ 60%
@@ -83,21 +90,33 @@ Branch 1 · XGBoost               Branch 2 · GRU
 ```
 
 **Explainability.** Branch 1 is explained with SHAP (`TreeExplainer`), Branch 2 with
-gradient × input saliency, and the fusion layer through its two coefficients. The strongest
-signals across every method are payment behaviour (`P_2`), balance (`B_1`, `B_8`), and
-delinquency (`D_48`).
+gradient × input saliency, and the fusion layer through its two coefficients. Payment
+behaviour (`P_2`) is the top signal for both branches. Beyond it, XGBoost leans on balance
+(`B_1`) and delinquency (`D_48`), while the GRU picks up `B_8`, `D_129` and the
+`D_43_was_missing` flag. That difference is why fusing the two beats either one alone.
 
 ## The dashboard
 
-A static web app in [`dashboard/`](dashboard/). It needs no backend and reads the exported
-CSVs directly in the browser.
+A static web app in [`dashboard/`](dashboard/). It needs no backend: it reads the two files
+exported by notebook 06, one row per test customer (fused score, risk level, action, top
+reasons from each branch and their contribution split) and each customer's monthly GRU
+scores.
 
 | Page | What it is for |
 |---|---|
 | **Home** (`index.html`) | Landing page with the live customer count |
-| **Radar** (`radar.html`) | Every customer plotted by risk; click a point for a quick profile |
-| **Customer Profile** (`profile.html`) | Searchable directory filtered by risk, with a full profile: score, 13-month trend, reasons from both branches, and the next step |
-| **Manager Dashboard** (`manager.html`) | Portfolio KPIs, risk mix, action playbook, early warnings (close to Critical, rising fast), and a priority list with CSV export |
+| **Radar** (`radar.html`) | The top 40 customers of each risk level plotted by score; click a point for a quick profile with their monthly GRU trend |
+| **Customer Profile** (`profile.html`) | Searchable directory filtered by risk, with a full profile: score, 13-month GRU trend, reasons from both branches, and the next step |
+| **Manager Dashboard** (`manager.html`) | Portfolio KPIs, risk mix, action playbook, early warnings (close to Critical, rising fast on the GRU trend), and a priority list with a 3-month GRU trend column and CSV export |
+
+**Reading the numbers.**
+
+- **Score (0–100):** the fused probability × 100, rounded down, so a score always sits inside its level: Low 0–9, Moderate 10–29, High 30–59, Critical 60+.
+- **Monthly trends:** the charts and the trend columns come from the GRU alone. It is the only branch that reads a customer month by month, and each month's score uses only the statements up to that month. XGBoost sees one aggregated view of the full history, so it has no monthly curve to show. For that reason the latest point on a trend can differ from the fused score.
+- **Trend charts** use a fixed 0–100 scale with the level cut-offs (10, 30, 60) drawn in, so a small move looks small.
+- **3-month trend:** the change in the GRU score between the latest month and three months earlier. It means the same on the profile, the radar and the manager dashboard. Moves under 3 points count as flat, and "Rising fast" means up 15 points or more.
+- **Short history:** customers with fewer than two months of history show a note instead of a trend.
+- **Reasons:** each profile lists the top three reasons from each branch (SHAP for XGBoost, saliency for the GRU) and how much each branch contributed to that customer's fused score.
 
 ### Run it locally
 
@@ -125,7 +144,8 @@ Firasa/
 │   ├── profile.html            #   Customer directory and profile
 │   ├── manager.html            #   Manager dashboard
 │   ├── assets/                 #   Shared CSS/JS, card images, demo data
-│   └── data/                   #   Exported scores and monthly trajectories (from notebook 06)
+│   ├── data/                   #   Exported scores and monthly trajectories (from notebook 06)
+│   └── build_offline_data.py   #   Rebuilds data/offline-data.js from the CSVs
 ├── api/                        # Phase 6: FastAPI scoring service + drift monitor
 │   ├── main.py                 #   Endpoints (/predict, /model-info, /monitoring/*, ...)
 │   ├── inference.py             #   Loads models/, replays notebook 06's scoring pipeline
@@ -147,7 +167,7 @@ Firasa/
 | 02 | [Baseline: Logistic Regression](notebooks/Firasa_02_Baseline_LogisticRegression.ipynb) | Naive baselines and a Logistic Regression sanity check |
 | 03 | [Branch 1: XGBoost & LightGBM](notebooks/Firasa_03_Branch1_XGBoost_LightGBM.ipynb) | Tree models, 5-fold CV, threshold tuning, held-out test, Branch 1 export |
 | 04 | [Branch 2: GRU + Fusion](notebooks/Firasa_04_Branch2_GRU_Fusion.ipynb) | Sequence model, fusion layer, risk levels, calibration, bootstrap CIs, SHAP & saliency |
-| 05 | [LSTM vs GRU](notebooks/Firasa_05_LSTM_vs_GRU_Decision.ipynb) | End-to-end LSTM alternative and the final comparison of every model |
+| 05 | [LSTM vs GRU](notebooks/Firasa_05_LSTM_vs_GRU_Decision.ipynb) | End-to-end LSTM alternative and the final comparison of every model, reading the GRU's test numbers from notebook 04's export |
 | 06 | [Dashboard export](notebooks/Firasa_06_Dashboard_Export.ipynb) | Scores every test customer and exports the dashboard's data files |
 
 ### Reproducing the results
@@ -156,8 +176,12 @@ The notebooks were built for **Google Colab** with Google Drive for intermediate
 
 1. Download the [Amex Parquet dataset](https://www.kaggle.com/datasets/odins0n/amex-parquet)
    from Kaggle (notebook 01 does this through the Kaggle API).
-2. Run the notebooks in order, 01 → 06. Each one reads the files the previous one saved.
-3. Copy the two CSVs exported by notebook 06 into `dashboard/data/`.
+2. Run the notebooks in order, 01 → 06. Each one reads the files the previous one saved;
+   notebook 04 also writes `branch2_gru_test_summary.json`, which notebook 05 reads.
+   Notebooks 04 and 05 turn on deterministic TensorFlow ops, so start them from a fresh
+   runtime to get the same GRU/LSTM results on every run.
+3. Copy the two CSVs exported by notebook 06 into `dashboard/data/`, then run
+   `python dashboard/build_offline_data.py`.
 
 Main libraries: `pandas`, `polars`, `scikit-learn`, `xgboost`, `lightgbm`, `tensorflow`/`keras`,
 `shap`, `matplotlib`, `seaborn`.

@@ -280,6 +280,10 @@
 
   var ALL = [], TREND = {}, view = 'atrisk', query = '', limit = PAGE;
 
+  // Score shown to people (0-100). Rounded down so it always agrees with the level:
+  // levels cut at 0.10 / 0.30 / 0.60, so 0.598 shows 59 (High), never 60.
+  function score100(p) { return Math.floor(p * 100 + 1e-9); }
+
   function esc(v) { return String(v).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function pct(n, d) { return d ? (n / d * 100) : 0; }
@@ -314,7 +318,7 @@
       { k: 'Customers monitored', v: fmt(total), s: 'Full scored portfolio', c: '#E9CB6F' },
       { k: 'Need action today', v: fmt(counts.Critical), s: '<b>' + pct(counts.Critical, total).toFixed(1) + '%</b> of portfolio are Critical', c: COLORS.Critical },
       { k: 'At risk', v: pct(atRisk, total).toFixed(1) + '%', s: '<b>' + fmt(atRisk) + '</b> customers are High or Critical', c: COLORS.High },
-      { k: 'Rising fast', v: fmt(rising), s: 'Up <b>' + Math.round(RISE_PTS * 100) + '+ pts</b> in the last ' + RISE_MONTHS + ' months', c: VIEWS.rising.color }
+      { k: 'Rising fast', v: fmt(rising), s: 'GRU score up <b>' + Math.round(RISE_PTS * 100) + '+ pts</b> in the last ' + RISE_MONTHS + ' months', c: VIEWS.rising.color }
     ];
     document.getElementById('kpis').innerHTML = tiles.map(function(t) {
       return '<div class="kpi" style="--c:' + t.c + '"><span class="k"><i></i>' + t.k + '</span><strong class="v">' + t.v + '</strong><span class="s">' + t.s + '</span></div>';
@@ -438,7 +442,7 @@
         '<div class="tx"><b>Close to Critical</b><span>High customers within ' + Math.round(NEAR_GAP * 100) + ' points of the Critical line. Act before they cross it.</span></div>' +
         '<span class="num">' + fmt(near) + '</span><button type="button" class="btn ghost" data-view="near">Review</button></div>' +
       '<div class="warn" style="--c:' + VIEWS.rising.color + '"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>' +
-        '<div class="tx"><b>Rising fast</b><span>Score up ' + Math.round(RISE_PTS * 100) + '+ points in the last ' + RISE_MONTHS + ' months, whatever their level today.</span></div>' +
+        '<div class="tx"><b>Rising fast</b><span>Trend model (GRU) score up ' + Math.round(RISE_PTS * 100) + '+ points in the last ' + RISE_MONTHS + ' months, whatever their level today.</span></div>' +
         '<span class="num">' + fmt(rising) + '</span><button type="button" class="btn ghost" data-view="rising">Review</button></div>';
   }
 
@@ -460,7 +464,7 @@
     document.getElementById('listPanel').style.setProperty('--c', VIEWS[view].color);
     document.getElementById('listMeta').textContent = 'Showing ' + fmt(shown.length) + ' of ' + fmt(rows.length) + ' · highest risk first · click a customer to open the full profile';
     var start = from == null ? Infinity : from;
-    var head = '<div class="row head"><span>#</span><span>Customer</span><span>Score</span><span class="lvl-col">Level</span><span>3-mo trend</span><span class="act">Next step</span><span></span></div>';
+    var head = '<div class="row head"><span>#</span><span>Customer</span><span>Score</span><span class="lvl-col">Level</span><span title="Change in the trend model (GRU) score over the last 3 months">3-mo trend (GRU)</span><span class="act">Next step</span><span></span></div>';
     document.getElementById('rows').innerHTML = shown.length ? head + shown.map(function(c, i) {
       var t = TREND[c.customer_ID], tr;
       if (t == null) tr = '<span class="trend flat">—</span>';
@@ -469,7 +473,7 @@
       return '<a class="row' + (i >= start ? ' enter' : '') + '" href="profile.html?id=' + encodeURIComponent(c.customer_ID) + '" style="--c:' + COLORS[c.risk_level] + (i >= start ? ';--d:' + Math.min(i - start, 20) * 16 + 'ms' : '') + '">' +
         '<span class="rk">#' + String(i + 1).padStart(3, '0') + '</span>' +
         '<span><span class="nm">' + esc(c.display_name) + '</span><span class="id">' + esc(c.customer_ID.slice(0, 18)) + '…</span></span>' +
-        '<span class="score"><b>' + Math.round(c.p_fused * 100) + '</b><span class="meter"><i style="width:' + (c.p_fused * 100).toFixed(1) + '%"></i></span></span>' +
+        '<span class="score"><b>' + score100(c.p_fused) + '</b><span class="meter"><i style="width:' + (c.p_fused * 100).toFixed(1) + '%"></i></span></span>' +
         '<span class="lvl-col"><span class="chip" style="--c:' + COLORS[c.risk_level] + '"><i></i>' + c.risk_level + '</span></span>' +
         tr +
         '<span class="act">' + esc(act.charAt(0).toUpperCase() + act.slice(1)) + '</span>' +
@@ -486,10 +490,10 @@
 
   function exportRows(rows, name) {
     var q = function(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-    var lines = ['customer_ID,display_name,risk_score,risk_level,trend_3mo_pts,action'];
+    var lines = ['customer_ID,display_name,risk_score,risk_level,gru_trend_3mo_pts,action'];
     rows.forEach(function(c) {
       var t = TREND[c.customer_ID];
-      lines.push([c.customer_ID, c.display_name, Math.round(c.p_fused * 100), c.risk_level, t == null ? '' : Math.round(t * 100), c.action].map(q).join(','));
+      lines.push([c.customer_ID, c.display_name, score100(c.p_fused), c.risk_level, t == null ? '' : Math.round(t * 100), c.action].map(q).join(','));
     });
     if (!rows.length) {
       showToast('warn', 'Nothing to export', 'This list has no customers, so no file was created.');

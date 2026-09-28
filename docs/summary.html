@@ -83,7 +83,7 @@
 
     <section class="kpis">
       <div class="kpi" style="--c:#E9CB6F"><span class="k"><i></i>Fusion ROC-AUC</span><strong class="v">0.958</strong><span class="s">Held-out test, at the last statement</span></div>
-      <div class="kpi" style="--c:#F06A68"><span class="k"><i></i>6 months early</span><strong class="v">0.933</strong><span class="s">Test ROC-AUC six months before the last statement</span></div>
+      <div class="kpi" style="--c:#F06A68"><span class="k"><i></i>6 months early</span><strong class="v">0.934</strong><span class="s">Test ROC-AUC six months before the last statement</span></div>
       <div class="kpi" style="--c:#F0C45B"><span class="k"><i></i>Defaulters caught early</span><strong class="v">85.7%</strong><span class="s">Flagged High or Critical 6 months ahead (validation)</span></div>
       <div class="kpi" style="--c:#72E0A9"><span class="k"><i></i>Risk bands that hold</span><strong class="v">1% → 83%</strong><span class="s">Actual default rate from Low to Critical (validation)</span></div>
     </section>
@@ -125,7 +125,7 @@
             <div class="step"><b>Branch 2 · GRU</b><span>13-month statement sequences</span></div>
           </div>
           <div class="arrow">›</div>
-          <div class="step key"><b>Fusion</b><span>Calibrated probability · 52% XGBoost / 48% GRU</span></div>
+          <div class="step key"><b>Fusion</b><span>Calibrated probability · 47% XGBoost / 53% GRU</span></div>
           <div class="arrow">›</div>
           <div class="step"><b>Dashboard</b><span>Risk level, reasons and next step</span></div>
         </div>
@@ -135,7 +135,7 @@
           <span class="chip"><b>B_1</b> balance</span>
           <span class="chip"><b>D_48</b> delinquency</span>
           <span class="chip"><b>B_8</b> balance trend</span>
-          <span class="chip"><b>S_15</b> spend</span>
+          <span class="chip"><b>D_129</b> delinquency</span>
         </div>
       </div>
     </section>
@@ -161,11 +161,11 @@
     var rows = [
       ['Naive (P_2 only)', 0.9154, 'val'],
       ['Logistic Regression', 0.9513, 'val'],
-      ['LightGBM', 0.9558, 'val'],
-      ['LSTM (Branch 2 alt.)', 0.9527, 'test'],
-      ['GRU (Branch 2)', 0.9529, 'test'],
-      ['XGBoost (Branch 1)', 0.9579, 'test'],
-      ['Fusion · XGBoost + GRU', 0.9581, 'test']
+      ['LightGBM', 0.9554, 'val'],
+      ['LSTM (Branch 2 alt.)', 0.9526, 'test'],
+      ['GRU (Branch 2)', 0.9546, 'test'],
+      ['XGBoost (Branch 1)', 0.9574, 'test'],
+      ['Fusion · XGBoost + GRU', 0.9582, 'test']
     ];
     var svg = document.getElementById('ladder');
     var L = 170, R = 560, T = 18, rowH = 33, lo = 0.91, hi = 0.96;
@@ -187,7 +187,7 @@
 
   // ---------- early warning: coverage columns + AUC labels per checkpoint ----------
   (function () {
-    var cps = [['6 months before', 85.7, 0.9329], ['3 months before', 89.5, 0.9433], ['Last statement', 91.7, 0.9581]];
+    var cps = [['6 months before', 85.7, 0.9337], ['3 months before', 89.4, 0.9443], ['Last statement', 92.0, 0.9582]];
     var svg = document.getElementById('early');
     var base = 206, top = 34, colW = 92, gap = 64, left = 64;
     [0, 25, 50, 75, 100].forEach(function (t) {
@@ -199,7 +199,7 @@
       var x0 = left + i * (colW + gap), h = (base - top) * c[1] / 100, y = base - h;
       var d = 'M' + x0 + ',' + base + 'V' + (y + 4) + 'Q' + x0 + ',' + y + ' ' + (x0 + 4) + ',' + y + 'H' + (x0 + colW - 4) + 'Q' + (x0 + colW) + ',' + y + ' ' + (x0 + colW) + ',' + (y + 4) + 'V' + base + 'Z';
       el(svg, 'path', { d: d, fill: ['#F06A68', '#F0C45B', '#E9CB6F'][i], opacity: 0.9 });
-      el(svg, 'text', { x: x0 + colW / 2, y: y - 8, fill: '#F3EFE3', 'font-size': 15, 'font-weight': 700, 'text-anchor': 'middle' }, c[1] + '%');
+      el(svg, 'text', { x: x0 + colW / 2, y: y - 8, fill: '#F3EFE3', 'font-size': 15, 'font-weight': 700, 'text-anchor': 'middle' }, c[1].toFixed(1) + '%');
       el(svg, 'text', { x: x0 + colW / 2, y: base + 18, fill: '#F3EFE3', 'font-size': 11.5, 'font-weight': 600, 'text-anchor': 'middle' }, c[0]);
       el(svg, 'text', { x: x0 + colW / 2, y: base + 34, fill: '#A9B8AC', 'font-size': 10.5, 'text-anchor': 'middle' }, 'ROC-AUC ' + c[2].toFixed(3));
     });
@@ -208,10 +208,10 @@
   // ---------- risk bands: default rate bars (0-100%) + test customer counts ----------
   (function () {
     var bands = [
-      ['Low', 1.2, 4705, '#77BCE8', 'Monitor as usual'],
-      ['Moderate', 15.3, 739, '#72E0A9', 'Watchlist + reminder'],
-      ['High', 36.7, 826, '#F0C45B', 'Offer a payment plan'],
-      ['Critical', 83.1, 2027, '#F06A68', 'Contact right away']
+      ['Low', 1.2, 4696, '#77BCE8', 'Monitor as usual'],
+      ['Moderate', 15.1, 705, '#72E0A9', 'Watchlist + reminder'],
+      ['High', 38.2, 856, '#F0C45B', 'Offer a payment plan'],
+      ['Critical', 82.6, 2040, '#F06A68', 'Contact right away']
     ];
     var svg = document.getElementById('bands');
     var L = 168, R = 480, T = 16, rowH = 48, bh = 18;

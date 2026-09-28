@@ -126,6 +126,8 @@
   .pane { display: none; margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(7,18,16,0.55); border: 1px solid rgba(255,255,255,0.06); }
   .pane.active { display: block; animation: row-in 280ms ease both; }
   .pane-note { color: var(--text-dim); font-size: 11.5px; }
+  .chart-note { margin-top: 8px; font-size: 10.5px; line-height: 1.5; }
+  .chart-note b { color: var(--m); }
 
   .chart-read { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; color: var(--text-dim); font-size: 11px; }
   .chart-read b { color: var(--m); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -287,6 +289,7 @@
 
   var ALL = [];
   var TRAJ_BY_ID = {};
+  var TREND_MONTHS = 3;   // trend window, shared with the manager dashboard
 
   function normalizeRow(row) {
     var id = row.customer_ID || row.customer_id || row.id;
@@ -349,22 +352,33 @@
     bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>'
   };
 
-  function trajChart(points, cw, ch) {
-    if (!points || points.length < 2) return '<div class="pane-note">No monthly trajectory for this customer.</div>';
-    var w = Math.round(cw || 520), h = Math.round(ch || 120), pad = 8;
-    var vals = points.map(function(p) { return p.p; });
-    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
-    var range = (max - min) || 1;
+  // Monthly GRU trend on a fixed 0-100 scale with the level cut-offs drawn in, so a
+  // 5-point move looks like 5 points instead of being stretched to fill the chart.
+  function trajChart(points, fused, cw, ch) {
+    if (!points || points.length < 2) return '<div class="pane-note">Not enough monthly history to draw a trend for this customer.</div>';
+    var w = Math.round(cw || 520), h = Math.round(ch || 120), padL = 26, padR = 8, padY = 8;
+    var yOf = function(p) { return padY + (1 - p) * (h - padY * 2); };
     var xy = points.map(function(pt, i) {
-      return { x: pad + (i / (points.length - 1)) * (w - pad * 2), y: h - pad - ((pt.p - min) / range) * (h - pad * 2), pt: pt };
+      return { x: padL + (i / (points.length - 1)) * (w - padL - padR), y: yOf(pt.p), pt: pt };
     });
     var line = xy.map(function(d) { return d.x.toFixed(1) + ',' + d.y.toFixed(1); }).join(' ');
-    var area = 'M' + xy[0].x.toFixed(1) + ',' + h + ' L' + line.replace(/ /g, ' L') + ' L' + xy[xy.length - 1].x.toFixed(1) + ',' + h + ' Z';
-    var step = (w - pad * 2) / (points.length - 1);
-    var last = xy[xy.length - 1];
-    return '<div class="chart-read"><span id="chartLabel">Month ' + last.pt.m + ' (latest)</span><b id="chartVal">' + Math.round(last.pt.p * 100) + '</b></div>' +
+    var base = yOf(0);
+    var area = 'M' + xy[0].x.toFixed(1) + ',' + base + ' L' + line.replace(/ /g, ' L') + ' L' + xy[xy.length - 1].x.toFixed(1) + ',' + base + ' Z';
+    var step = (w - padL - padR) / (points.length - 1);
+    var first = xy[0], last = xy[xy.length - 1];
+    var bands = SCALE.map(function(z) {
+      var y1 = yOf(z[2] / 100), y2 = yOf(z[1] / 100);
+      return '<rect x="' + padL + '" y="' + y1 + '" width="' + (w - padL - padR) + '" height="' + (y2 - y1) + '" fill="' + LIST_COLORS[z[0]] + '" opacity="0.06"/>';
+    }).join('');
+    var ticks = [0, 10, 30, 60, 100].map(function(v) {
+      var y = yOf(v / 100);
+      return (v > 0 && v < 100 ? '<line x1="' + padL + '" x2="' + (w - padR) + '" y1="' + y + '" y2="' + y + '" stroke="rgba(255,255,255,0.16)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>' : '') +
+        '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" fill="rgba(255,255,255,0.45)" font-size="9">' + v + '</text>';
+    }).join('');
+    return '<div class="chart-read"><span id="chartLabel">Month ' + last.pt.m + ' (latest) · GRU</span><b id="chartVal">' + score100(last.pt.p) + '</b></div>' +
       '<svg class="traj-svg" id="trajSvg" viewBox="0 0 ' + w + ' ' + h + '">' +
         '<defs><linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:var(--m);stop-opacity:0.35"/><stop offset="100%" style="stop-color:var(--m);stop-opacity:0"/></linearGradient></defs>' +
+        bands + ticks +
         '<path d="' + area + '" fill="url(#areaFill)"/>' +
         '<polyline points="' + line + '" fill="none" style="stroke:var(--m)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
         xy.map(function(d, i) {
@@ -373,7 +387,8 @@
                  '<rect class="hit" data-i="' + i + '" data-m="' + d.pt.m + '" data-p="' + d.pt.p + '" x="' + (d.x - step / 2) + '" y="0" width="' + step + '" height="' + h + '"/>';
         }).join('') +
       '</svg>' +
-      '<div class="chart-axis"><span>Month ' + points[0].m + '</span><span>Month ' + last.pt.m + '</span></div>';
+      '<div class="chart-axis" style="padding-left:' + padL + 'px"><span>Month ' + first.pt.m + ' · ' + score100(first.pt.p) + '</span><span>Month ' + last.pt.m + ' · ' + score100(last.pt.p) + '</span></div>' +
+      '<div class="pane-note chart-note"><b>How to read it:</b> the GRU’s score for each month on a fixed 0–100 scale; dashed lines are the Moderate (10), High (30) and Critical (60) cut-offs. <b>Why GRU?</b> It reads this customer month by month, seeing only what was known at the time. The final score of ' + score100(fused) + ' adds XGBoost’s full-history view.</div>';
   }
 
   function parseReasons(text) {
@@ -405,7 +420,7 @@
       '<div class="scale-bar">' + SCALE.map(function(z) {
         return '<span class="' + (z[0] === c.risk_level ? 'on' : '') + '" title="' + z[0] + '" style="flex:' + (z[2] - z[1]) + ';background:' + LIST_COLORS[z[0]] + ';color:' + LIST_COLORS[z[0]] + '"></span>';
       }).join('') +
-      '<div class="pin" id="scalePin"><b>' + Math.round(c.p_fused * 100) + '</b><i></i></div></div>' +
+      '<div class="pin" id="scalePin"><b>' + score100(c.p_fused) + '</b><i></i></div></div>' +
       '<div class="scale-ticks">' + [0, 10, 30, 60, 100].map(function(v) { return '<span style="left:' + v + '%">' + v + '</span>'; }).join('') + '</div></div>';
   }
 
@@ -414,12 +429,14 @@
     var traj = TRAJ_BY_ID[c.customer_ID];
     var list = filteredCustomers();
     var idx = list.findIndex(function(x) { return x.customer_ID === c.customer_ID; });
-    var score = Math.round(c.p_fused * 100);
+    var score = score100(c.p_fused);
 
     var trendHtml = '<span class="v">—</span>';
     if (traj && traj.length > 1) {
-      var delta = Math.round((traj[traj.length - 1].p - traj[0].p) * 100);
-      trendHtml = '<span class="v ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : '') + '">' + (delta > 0 ? '▲ +' : delta < 0 ? '▼ ' : '') + delta + ' pts</span>';
+      // Same definition as the manager dashboard: latest GRU month vs 3 months earlier.
+      var delta = Math.round((traj[traj.length - 1].p - traj[Math.max(0, traj.length - 1 - TREND_MONTHS)].p) * 100);
+      // Moves under 3 points count as flat, as on the manager dashboard.
+      trendHtml = '<span class="v ' + (delta >= 3 ? 'up' : delta <= -3 ? 'down' : '') + '">' + (delta >= 3 ? '▲ +' : delta <= -3 ? '▼ ' : '● ') + delta + ' pts</span>';
     }
 
     var actionHtml = '';
@@ -469,8 +486,8 @@
           '<div class="gauge"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="42"/><circle class="val" id="gaugeVal" cx="50" cy="50" r="42" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg>' +
             '<div class="num"><b id="gaugeNum">0</b><span>/ 100</span></div></div>' +
           '<div class="m-stats">' +
-            '<div class="m-stat"><span class="k">Risk score</span><span class="v">' + c.p_fused.toFixed(3) + '</span></div>' +
-            '<div class="m-stat"><span class="k">Trend</span>' + trendHtml + '</div>' +
+            '<div class="m-stat"><span class="k" title="Fused probability of default (XGBoost + GRU); the score is this × 100, rounded down">Default probability</span><span class="v">' + (c.p_fused * 100).toFixed(1) + '%</span></div>' +
+            '<div class="m-stat"><span class="k" title="Change in the trend model (GRU) score over the last 3 months">3-mo trend (GRU)</span>' + trendHtml + '</div>' +
             '<div class="m-stat"><span class="k">Risk level</span><span class="v" style="color:var(--m)">' + LEVEL_LABEL[c.risk_level] + '</span></div>' +
             '<div class="m-stat"><span class="k">Months tracked</span><span class="v">' + (traj ? traj.length : '—') + '</span></div>' +
           '</div>' +
@@ -483,7 +500,7 @@
           '<button type="button" class="tab" data-tab="why">Why this rating</button>' +
           '<button type="button" class="tab" data-tab="split">Model split</button>' +
         '</div>' +
-        '<div class="pane active" data-pane="trend">' + trajChart(traj) + '</div>' +
+        '<div class="pane active" data-pane="trend">' + trajChart(traj, c.p_fused) + '</div>' +
         '<div class="pane" data-pane="why">' + (whyHtml || '<div class="pane-note">No reasons available.</div>') + '</div>' +
         '<div class="pane" data-pane="split">' + splitHtml + '</div>' +
         '</div></div>' +
@@ -498,7 +515,7 @@
     // redraw the trend chart at its real pixel size so points stay round
     var trendSvg = modal.querySelector('#trajSvg');
     if (trendSvg && trendSvg.clientWidth) {
-      trendSvg.closest('.pane').innerHTML = trajChart(traj, trendSvg.clientWidth, trendSvg.clientHeight);
+      trendSvg.closest('.pane').innerHTML = trajChart(traj, c.p_fused, trendSvg.clientWidth, trendSvg.clientHeight);
     }
 
     // animate gauge + count-up
@@ -564,6 +581,10 @@
   var listLimit = PAGE_SIZE;
   var selectedId = null;
 
+  // Score shown to people (0-100). Rounded down so it always agrees with the level:
+  // levels cut at 0.10 / 0.30 / 0.60, so 0.598 shows 59 (High), never 60.
+  function score100(p) { return Math.floor(p * 100 + 1e-9); }
+
   function escapeHtml(v) {
     return String(v).replace(/[&<>"']/g, function(ch) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
@@ -614,7 +635,7 @@
         '<span class="who"><span class="nm">' + escapeHtml(c.display_name) + '</span>' +
           '<span class="meta"><b>' + LEVEL_LABEL[c.risk_level] + '</b> · ' + escapeHtml(c.customer_ID.slice(0, 16)) + '…</span></span>' +
         '<span class="meter"><b style="width:' + (c.p_fused * 100).toFixed(1) + '%"></b></span>' +
-        '<span class="sc">' + Math.round(c.p_fused * 100) + '</span>' +
+        '<span class="sc">' + score100(c.p_fused) + '</span>' +
       '</button>';
     }).join('') : '<div class="list-empty">No customers match this filter</div>';
     document.getElementById('moreBtn').hidden = rows.length <= listLimit;
@@ -669,8 +690,8 @@
     if (!hit) return;
     var i = hit.getAttribute('data-i');
     this.querySelectorAll('.traj-svg .pt, .traj-svg .guide').forEach(function(el) { el.classList.toggle('on', el.getAttribute('data-i') === i); });
-    document.getElementById('chartLabel').textContent = 'Month ' + hit.getAttribute('data-m');
-    document.getElementById('chartVal').textContent = Math.round(parseFloat(hit.getAttribute('data-p')) * 100);
+    document.getElementById('chartLabel').textContent = 'Month ' + hit.getAttribute('data-m') + ' · GRU';
+    document.getElementById('chartVal').textContent = score100(parseFloat(hit.getAttribute('data-p')));
   });
 
   document.addEventListener('keydown', function(e) {

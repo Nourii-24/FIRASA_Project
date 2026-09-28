@@ -22,10 +22,10 @@
     --cyan: #37D6C6;
     --panel: #071210;
     --panel-2: #0B1414;
-    --low: #4682B4;
-    --moderate: #8FBF9F;
-    --high: #DAA520;
-    --critical: #B22222;
+    --low: #77BCE8;
+    --moderate: #72E0A9;
+    --high: #F0C45B;
+    --critical: #F06A68;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -199,6 +199,10 @@
   .pulse-card { margin-top: 16px; padding: 14px 14px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(7,18,16,0.55); }
   .pulse-head { display: flex; justify-content: space-between; align-items: center; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
   .pulse-head b { color: var(--modal-color); font-size: 11px; letter-spacing: 0.6px; }
+  .pulse-read { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; color: var(--text-dim); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .pulse-read b { color: var(--text); }
+  .pulse-note { margin-top: 8px; color: var(--text-dim); font-size: 10.5px; line-height: 1.5; }
+  .pulse-note b { color: var(--modal-color); }
   .pulse-svg { display: block; width: 100%; height: 86px; margin-top: 8px; overflow: visible; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--modal-color) 45%, transparent)); }
   .modal-cta { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; padding: 13px; border-radius: 999px; border: 1px solid var(--gold); background: linear-gradient(180deg, rgba(212,175,55,0.22), rgba(212,175,55,0.06)); color: var(--gold-light); font-size: 13.5px; font-weight: 600; text-decoration: none; box-shadow: 0 0 20px rgba(212,175,55,0.14); transition: box-shadow 200ms ease, transform 200ms ease; }
   .modal-cta:hover { transform: translateY(-1px); box-shadow: 0 0 30px rgba(212,175,55,0.32); }
@@ -280,22 +284,22 @@
       </div>
       <div class="risk-lists" id="riskLists">
         <section class="risk-list risk-critical">
-          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>Critical</h3></div><span class="risk-count" id="count-Critical">0</span></div>
+          <div class="risk-list-head"><div><span class="eyebrow" id="top-Critical">Risk level</span><h3>Critical</h3></div><span class="risk-count" id="count-Critical">0</span></div>
           <div class="risk-list-items" id="list-Critical"></div>
           <div class="empty-note" id="empty-Critical" style="display:none;">No matching customers</div>
         </section>
         <section class="risk-list risk-high">
-          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>High</h3></div><span class="risk-count" id="count-High">0</span></div>
+          <div class="risk-list-head"><div><span class="eyebrow" id="top-High">Risk level</span><h3>High</h3></div><span class="risk-count" id="count-High">0</span></div>
           <div class="risk-list-items" id="list-High"></div>
           <div class="empty-note" id="empty-High" style="display:none;">No matching customers</div>
         </section>
         <section class="risk-list risk-moderate">
-          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>Moderate</h3></div><span class="risk-count" id="count-Moderate">0</span></div>
+          <div class="risk-list-head"><div><span class="eyebrow" id="top-Moderate">Risk level</span><h3>Moderate</h3></div><span class="risk-count" id="count-Moderate">0</span></div>
           <div class="risk-list-items" id="list-Moderate"></div>
           <div class="empty-note" id="empty-Moderate" style="display:none;">No matching customers</div>
         </section>
         <section class="risk-list risk-low">
-          <div class="risk-list-head"><div><span class="eyebrow">Risk level</span><h3>Low</h3></div><span class="risk-count" id="count-Low">0</span></div>
+          <div class="risk-list-head"><div><span class="eyebrow" id="top-Low">Risk level</span><h3>Low</h3></div><span class="risk-count" id="count-Low">0</span></div>
           <div class="risk-list-items" id="list-Low"></div>
           <div class="empty-note" id="empty-Low" style="display:none;">No matching customers</div>
         </section>
@@ -315,13 +319,15 @@
 <script src="assets/sample-data.js"></script>
 <script src="assets/data-loader.js"></script>
 <script>
-  var LEVEL_COLORS = { Low: '#4682B4', Moderate: '#8FBF9F', High: '#DAA520', Critical: '#B22222' };
+  // Same level palette as the profile and manager pages.
+  var LEVEL_COLORS = { Low: '#77BCE8', Moderate: '#72E0A9', High: '#F0C45B', Critical: '#F06A68' };
   var LEVEL_LABEL = { Low: 'Low', Moderate: 'Moderate', High: 'High', Critical: 'Critical' };
 
   var ALL = [];        // full loaded dataset (real CSV or sample fallback)
   var TOP = [];         // top-N by risk, shown on the radar + default list
   var activeFilters = { Low: true, Moderate: true, High: true, Critical: true };
-  var TRAJECTORIES_BY_ID = {};
+  var TRAJECTORIES_BY_ID = {}, TRAJ_LOADED = false;
+  var SEARCHING = false;  // list headers say "search matches" instead of "Top N of total"
 
   function hashAngle(str) {
     var h = 0;
@@ -331,6 +337,10 @@
   function truncateId(id) {
     return id.length > 18 ? id.slice(0, 18) + '…' : id;
   }
+
+  // Score shown to people (0-100). Rounded down so it always agrees with the level:
+  // levels cut at 0.10 / 0.30 / 0.60, so 0.598 shows 59 (High), never 60.
+  function score100(p) { return Math.floor(p * 100 + 1e-9); }
 
   function normalizeRow(row) {
     var id = row.customer_ID || row.customer_id || row.id;
@@ -379,11 +389,16 @@
       TRAJECTORIES_BY_ID = {};
       data.forEach(function(row) {
         var id = row.customer_ID || row.customer_id || row.id;
-        var score = parseFloat(row.risk_score);
+        var score = parseFloat(row.risk_score), month = parseFloat(row.month_index);
         if (!id || isNaN(score)) return;
         if (!TRAJECTORIES_BY_ID[id]) TRAJECTORIES_BY_ID[id] = [];
-        TRAJECTORIES_BY_ID[id].push(score);
+        TRAJECTORIES_BY_ID[id].push({ m: isNaN(month) ? TRAJECTORIES_BY_ID[id].length + 1 : month, p: score });
       });
+      // Order by month, not by file row order.
+      Object.keys(TRAJECTORIES_BY_ID).forEach(function(id) {
+        TRAJECTORIES_BY_ID[id].sort(function(a, b) { return a.m - b.m; });
+      });
+      TRAJ_LOADED = true;
     });
   }
 
@@ -438,6 +453,7 @@
   }
 
   function applyFilters() {
+    SEARCHING = false;
     var filtered = TOP.filter(function(t) { return activeFilters[t.risk_level]; });
     buildRadarAndList(filtered, true);
   }
@@ -465,6 +481,7 @@
         if (!selected) return;
         document.getElementById('search').value = selected.display_name;
         el.classList.remove('show');
+        SEARCHING = true;
         buildRadarAndList([selected], true);
       };
     });
@@ -529,13 +546,20 @@
       var listEl = document.getElementById('list-' + level);
       listEl.innerHTML = '';
       document.getElementById('count-' + level).textContent = levelRows.length;
+      // The radar shows only the highest-scoring customers of each level, so say so.
+      var total = ALL.filter(function(t) { return t.risk_level === level; }).length;
+      document.getElementById('top-' + level).textContent = SEARCHING
+        ? levelRows.length + ' search match' + (levelRows.length === 1 ? '' : 'es')
+        : levelRows.length < total
+        ? 'Top ' + levelRows.length + ' of ' + total.toLocaleString('en-US') + ' · highest first'
+        : 'All ' + total.toLocaleString('en-US') + ' customers';
       document.getElementById('empty-' + level).style.display = levelRows.length ? 'none' : 'block';
       levelRows.forEach(function(t) {
         var row = document.createElement('div');
         row.className = 'target-row';
         row.onclick = function() { openModal(t); };
         row.innerHTML =
-          '<div class="score">' + Math.round(t.p_fused * 100) + '</div>' +
+          '<div class="score">' + score100(t.p_fused) + '</div>' +
           '<div class="who"><div class="nm">' + t.display_name + '</div><div class="meta">' + LEVEL_LABEL[t.risk_level] + '</div></div>' +
           '<span class="dotlvl" style="background:' + LEVEL_COLORS[t.risk_level] + '"></span>';
         listEl.appendChild(row);
@@ -560,44 +584,51 @@
     tooltip.classList.add('show');
   }
 
+  // Real monthly scores only; null when the customer has under two months of history.
   function getPulseValues(customer) {
     var values = TRAJECTORIES_BY_ID[customer.customer_ID];
-    if (values && values.length > 1) return values.slice(-13);
-    values = [];
-    for (var i = 0; i < 13; i++) {
-      var variation = ((hashAngle(customer.customer_ID + ':pulse:' + i) / 360) - 0.5) * 0.12;
-      values.push(Math.max(0, Math.min(1, customer.p_fused + variation)));
-    }
-    return values;
+    return values && values.length > 1 ? values.slice(-13) : null;
   }
 
+  var TREND_MONTHS = 3;   // trend window, shared with the profile and manager pages
+
+  // Monthly GRU trend on a fixed 0-100 scale (dashed lines = level cut-offs), so a
+  // small move stays small instead of being stretched to fill the card.
   function buildPulseSvg(customer) {
-    var values = getPulseValues(customer);
-    var min = Math.min.apply(null, values);
-    var max = Math.max.apply(null, values);
-    var range = Math.max(max - min, 0.04);
+    var pts = getPulseValues(customer);
+    if (!pts && !TRAJ_LOADED) return '<div class="pulse-note">Loading monthly history…</div>';
+    if (!pts) return '<div class="pulse-note">Not enough monthly history to draw a trend for this customer.</div>';
+    var values = pts.map(function(d) { return d.p; });
+    var yOf = function(p) { return 70 - p * 64; };
     var points = values.map(function(value, index) {
       var x = index * (400 / Math.max(values.length - 1, 1));
-      var y = 66 - ((value - min) / range) * 48;
-      return x.toFixed(1) + ',' + y.toFixed(1);
+      return x.toFixed(1) + ',' + yOf(value).toFixed(1);
     }).join(' ');
     var baseline = values.map(function(value, index) {
-      return (index * (400 / Math.max(values.length - 1, 1))).toFixed(1) + ',66';
+      return (index * (400 / Math.max(values.length - 1, 1))).toFixed(1) + ',70';
     }).join(' ');
+    var cuts = [0.10, 0.30, 0.60].map(function(c) {
+      return '<line x1="0" y1="' + yOf(c) + '" x2="400" y2="' + yOf(c) + '" stroke="rgba(255,255,255,0.14)" stroke-dasharray="4 5" vector-effect="non-scaling-stroke" />';
+    }).join('');
+    var first = pts[0], last = pts[pts.length - 1], ref = pts[Math.max(0, pts.length - 1 - TREND_MONTHS)];
+    var d = Math.round((last.p - ref.p) * 100);
     var color = MODAL_COLORS[customer.risk_level] || LEVEL_COLORS[customer.risk_level];
-    return '<svg class="pulse-svg" viewBox="0 0 400 76" preserveAspectRatio="none" aria-label="Customer risk pulse">' +
-      '<line x1="0" y1="66" x2="400" y2="66" stroke="rgba(255,255,255,0.1)" />' +
+    var readout = '<div class="pulse-read"><span>Month ' + first.m + ' · <b>' + score100(first.p) + '</b></span>' +
+      '<span>3-mo change <b>' + (d >= 3 ? '▲ +' + d : d <= -3 ? '▼ ' + d : '● ' + d) + '</b></span>' +
+      '<span>Month ' + last.m + ' · <b>' + score100(last.p) + '</b></span></div>';
+    return '<svg class="pulse-svg" viewBox="0 0 400 76" preserveAspectRatio="none" aria-label="Monthly GRU risk trend on a 0 to 100 scale">' +
+      '<line x1="0" y1="70" x2="400" y2="70" stroke="rgba(255,255,255,0.1)" />' + cuts +
       '<polyline points="' + baseline + '" fill="none" stroke="' + color + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
       '<animate attributeName="points" from="' + baseline + '" to="' + points + '" dur="900ms" fill="freeze" />' +
       '</polyline>' +
-      '<circle cx="' + points.split(' ').slice(-1)[0].split(',')[0] + '" cy="66" r="0" fill="' + color + '">' +
-      '<animate attributeName="cy" from="66" to="' + points.split(' ').slice(-1)[0].split(',')[1] + '" dur="900ms" fill="freeze" />' +
+      '<circle cx="' + points.split(' ').slice(-1)[0].split(',')[0] + '" cy="70" r="0" fill="' + color + '">' +
+      '<animate attributeName="cy" from="70" to="' + points.split(' ').slice(-1)[0].split(',')[1] + '" dur="900ms" fill="freeze" />' +
       '<animate attributeName="r" from="0" to="4" dur="900ms" fill="freeze" />' +
       '</circle>' +
-      '</svg>';
+      '</svg>' + readout;
   }
 
-  var MODAL_COLORS = { Critical: '#F06A68', High: '#F0C45B', Moderate: '#72E0A9', Low: '#77BCE8' };
+  var MODAL_COLORS = LEVEL_COLORS;
   var MODAL_ICONS = {
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
@@ -620,8 +651,9 @@
       +   '<div class="modal-sub">Customer ID: ' + truncateId(t.customer_ID) + '</div>'
       + '</div></div>'
       + '<div class="modal-action' + (t.risk_level === 'Critical' ? ' urgent' : '') + '"><span class="modal-action-label">' + MODAL_ICONS.bolt + 'Recommended next step</span>' + t.action + '</div>'
-      + '<div class="pulse-card"><div class="pulse-head"><span>Customer risk pulse</span><b>' + LEVEL_LABEL[t.risk_level] + '</b></div>'
+      + '<div class="pulse-card"><div class="pulse-head"><span>Monthly trend · GRU model</span><b>' + LEVEL_LABEL[t.risk_level] + '</b></div>'
       + buildPulseSvg(t)
+      + '<div class="pulse-note">Fixed 0–100 scale; dashed lines mark the Moderate (10), High (30) and Critical (60) cut-offs. <b>Why GRU?</b> It reads this customer month by month, seeing only what was known at the time. The final score of ' + score100(t.p_fused) + ' adds XGBoost’s full-history view.</div>'
       + '</div>'
       + '<a class="modal-cta" href="profile.html?id=' + encodeURIComponent(t.customer_ID) + '">Open full customer profile</a>'
       + '</div>';
@@ -655,6 +687,7 @@
     var matches = searchMatches(q);
     showSuggestions(matches);
     matches = matches.slice(0, 30);
+    SEARCHING = true;
     buildRadarAndList(matches, true);
   });
   document.addEventListener('click', function(e) {

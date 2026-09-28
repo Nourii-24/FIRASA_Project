@@ -79,10 +79,10 @@ MONITORED_FEATURES = ["P_2", "B_1", "B_2", "B_3", "B_8", "D_39", "D_41", "D_48",
 # Reference output (risk-level) distribution, measured on the real
 # 8,297-customer held-out test set at the last statement.
 REFERENCE_RISK_LEVEL_DIST = {
-    "Low": 4705 / 8297,
-    "Moderate": 739 / 8297,
-    "High": 826 / 8297,
-    "Critical": 2027 / 8297,
+    "Low": 4696 / 8297,
+    "Moderate": 705 / 8297,
+    "High": 856 / 8297,
+    "Critical": 2040 / 8297,
 }
 RISK_LEVEL_ORDER = ["Low", "Moderate", "High", "Critical"]
 
